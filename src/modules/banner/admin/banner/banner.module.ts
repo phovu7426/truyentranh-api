@@ -4,9 +4,13 @@ import { BannerService } from '@/modules/banner/admin/banner/services/banner.ser
 import { BannerController } from '@/modules/banner/admin/banner/controllers/banner.controller';
 import { Banner } from '@/shared/entities/banner.entity';
 import { BannerLocation } from '@/shared/entities/banner-location.entity';
+import { RbacModule } from '@/modules/rbac/rbac.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Banner, BannerLocation])],
+    imports: [
+        TypeOrmModule.forFeature([Banner, BannerLocation]),
+        RbacModule,
+    ],
     controllers: [BannerController],
     providers: [BannerService],
     exports: [BannerService],

@@ -24,21 +24,21 @@ export class AdminPaymentController {
   ) {}
 
   @Get()
-  @Permission('read:payments')
+  @Permission('order.manage')
   async getList(@Query() query: any) {
     const { filters, options } = prepareQuery(query);
     return this.paymentService.getList(filters, options);
   }
 
   @Get(':id')
-  @Permission('read:payments')
+  @Permission('order.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.paymentService.getPaymentById(id);
   }
 
   @LogRequest()
   @Patch(':id/status')
-  @Permission('update:payments')
+  @Permission('order.manage')
   async updatePaymentStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdatePaymentDto,

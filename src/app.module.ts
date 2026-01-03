@@ -21,6 +21,8 @@ import { RbacModule } from '@/modules/rbac/rbac.module';
 import { RbacGuard } from '@/common/guards/rbac.guard';
 import { RequestContextMiddleware } from '@/common/middlewares/request-context.middleware';
 import { RateLimitModule } from '@/core/security/throttler.module';
+import { ContextModule } from '@/modules/context/context.module';
+import { GroupInterceptor } from '@/common/interceptors/group.interceptor';
 
 // New Domain Modules
 import { PostModule } from '@/modules/post/post.module';
@@ -43,6 +45,7 @@ import { AppMailModule } from '@/core/mail/mail.module';
     RateLimitModule, // Global rate limiting
     AuthModule,
     RbacModule,
+    ContextModule,
     // New Domain Modules
     PostModule,
     EcommerceModule,
@@ -85,6 +88,10 @@ import { AppMailModule } from '@/core/mail/mail.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TimeoutInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: GroupInterceptor,
     },
     // Global Guards
     {

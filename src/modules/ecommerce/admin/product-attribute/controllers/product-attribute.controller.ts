@@ -26,47 +26,47 @@ export class AdminProductAttributeController {
   constructor(private readonly productAttributeService: AdminProductAttributeService) { }
 
   @Get()
-  @Permission('product-attribute:read')
+  @Permission('product_attribute.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productAttributeService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('product-attribute:read')
+  @Permission('product_attribute.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productAttributeService.getSimpleList(filters, options);
   }
 
   @Get('with-values')
-  @Permission('product-attribute:read')
+  @Permission('product_attribute.manage')
   async getWithValues() {
     return this.productAttributeService.getList({}, { relations: ['values'], limit: 1000 });
   }
 
   @Get('code/:code')
-  @Permission('product-attribute:read')
+  @Permission('product_attribute.manage')
   async getByCode(@Param('code') code: string) {
     return this.productAttributeService.getOne({ code } as any);
   }
 
   @Get(':id')
-  @Permission('product-attribute:read')
+  @Permission('product_attribute.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeService.getOne({ id } as any);
   }
 
   @LogRequest()
   @Post()
-  @Permission('product-attribute:create')
+  @Permission('product_attribute.manage')
   async create(@Body(ValidationPipe) dto: CreateProductAttributeDto) {
     return this.productAttributeService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('product-attribute:update')
+  @Permission('product_attribute.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateProductAttributeDto,
@@ -76,14 +76,14 @@ export class AdminProductAttributeController {
 
   @LogRequest()
   @Put(':id/restore')
-  @Permission('product-attribute:update')
+  @Permission('product_attribute.manage')
   async restore(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeService.restore(id);
   }
 
   @LogRequest()
   @Delete(':id')
-  @Permission('product-attribute:delete')
+  @Permission('product_attribute.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeService.delete(id);
   }

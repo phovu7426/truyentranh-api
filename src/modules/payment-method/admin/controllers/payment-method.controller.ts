@@ -26,34 +26,34 @@ export class PaymentMethodController {
 
   @LogRequest()
   @Post()
-  @Permission('payment-method:create')
+  @Permission('payment_method.manage')
   async create(@Body() dto: CreatePaymentMethodDto) {
     return this.paymentMethodService.create(dto);
   }
 
   @Get()
-  @Permission('payment-method:read')
+  @Permission('payment_method.manage')
   async getList(@Query() query: GetPaymentMethodsDto) {
     const { filters, options } = prepareQuery(query);
     return this.paymentMethodService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('payment-method:read')
+  @Permission('payment_method.manage')
   async getSimpleList(@Query() query: GetPaymentMethodsDto) {
     const { filters, options } = prepareQuery(query);
     return this.paymentMethodService.getSimpleList(filters, options);
   }
 
   @Get(':id')
-  @Permission('payment-method:read')
+  @Permission('payment_method.manage')
   async getOne(@Param('id') id: string) {
     return this.paymentMethodService.getOne({ id: +id });
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('payment-method:update')
+  @Permission('payment_method.manage')
   async update(
     @Param('id') id: string,
     @Body() dto: UpdatePaymentMethodDto,
@@ -63,14 +63,14 @@ export class PaymentMethodController {
 
   @LogRequest()
   @Delete(':id')
-  @Permission('payment-method:delete')
+  @Permission('payment_method.manage')
   async delete(@Param('id') id: string) {
     return this.paymentMethodService.delete(+id);
   }
 
   @LogRequest()
   @Put(':id/restore')
-  @Permission('payment-method:update')
+  @Permission('payment_method.manage')
   async restore(@Param('id') id: string) {
     return this.paymentMethodService.restore(+id);
   }

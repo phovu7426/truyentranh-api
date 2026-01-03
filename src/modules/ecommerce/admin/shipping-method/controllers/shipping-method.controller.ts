@@ -27,47 +27,47 @@ export class AdminShippingMethodController {
   constructor(private readonly shippingMethodService: AdminShippingMethodService) { }
 
   @Get()
-  @Permission('shipping-method:read')
+  @Permission('shipping_method.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.shippingMethodService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('shipping-method:read')
+  @Permission('shipping_method.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.shippingMethodService.getSimpleList(filters, options);
   }
 
   @Get('active')
-  @Permission('shipping-method:read')
+  @Permission('shipping_method.manage')
   async getActive() {
     return this.shippingMethodService.getList({ status: BasicStatus.Active }, { sort: 'name:ASC', limit: 1000 });
   }
 
   @Get('code/:code')
-  @Permission('shipping-method:read')
+  @Permission('shipping_method.manage')
   async getByCode(@Param('code') code: string) {
     return this.shippingMethodService.getOne({ code } as any);
   }
 
   @Get(':id')
-  @Permission('shipping-method:read')
+  @Permission('shipping_method.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.shippingMethodService.getOne({ id } as any);
   }
 
   @LogRequest()
   @Post()
-  @Permission('shipping-method:create')
+  @Permission('shipping_method.manage')
   async create(@Body(ValidationPipe) dto: CreateShippingMethodDto) {
     return this.shippingMethodService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('shipping-method:update')
+  @Permission('shipping_method.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateShippingMethodDto,
@@ -77,14 +77,14 @@ export class AdminShippingMethodController {
 
   @LogRequest()
   @Put(':id/restore')
-  @Permission('shipping-method:update')
+  @Permission('shipping_method.manage')
   async restore(@Param('id', ParseIntPipe) id: number) {
     return this.shippingMethodService.restore(id);
   }
 
   @LogRequest()
   @Delete(':id')
-  @Permission('shipping-method:delete')
+  @Permission('shipping_method.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.shippingMethodService.delete(id);
   }

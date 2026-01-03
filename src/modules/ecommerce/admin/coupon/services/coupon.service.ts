@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Coupon, CouponStatus } from '@/shared/entities/coupon.entity';
 import { CrudService } from '@/common/base/services/crud.service';
+import { RequestContext } from '@/common/utils/request-context.util';
+import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
 
 @Injectable()
 export class AdminCouponService extends CrudService<Coupon> {
@@ -11,6 +13,25 @@ export class AdminCouponService extends CrudService<Coupon> {
     protected readonly couponRepository: Repository<Coupon>,
   ) {
     super(couponRepository);
+  }
+
+  /**
+   * Mặc định filter coupon theo group/context nếu có
+   */
+  protected override prepareFilters(filters?: any, _options?: any): boolean | any {
+    const prepared = { ...(filters || {}) };
+
+    if (prepared.group_id === undefined) {
+      const contextId = RequestContext.get<number>('contextId');
+      const groupId = RequestContext.get<number | null>('groupId');
+
+      // Nếu context không phải system (contextId !== 1) và có ref_id, dùng ref_id làm group_id
+      if (contextId && contextId !== 1 && groupId) {
+        prepared.group_id = groupId;
+      }
+    }
+
+    return prepared;
   }
 
   /**
@@ -69,5 +90,39 @@ export class AdminCouponService extends CrudService<Coupon> {
     return this.couponRepository.count({
       where: { status: CouponStatus.ACTIVE },
     });
+  }
+
+  /**
+   * Override getOne để verify ownership
+   */
+  override async getOne(where: any, options?: any): Promise<Coupon | null> {
+    const coupon = await super.getOne(where, options);
+    if (coupon) {
+      verifyGroupOwnership(coupon);
+    }
+    return coupon;
+  }
+
+  /**
+   * Override beforeUpdate để verify ownership
+   */
+  protected override async beforeUpdate(
+    entity: Coupon,
+    updateDto: any,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
+  }
+
+  /**
+   * Override beforeDelete để verify ownership
+   */
+  protected override async beforeDelete(
+    entity: Coupon,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
   }
 }

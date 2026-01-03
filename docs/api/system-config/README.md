@@ -45,18 +45,27 @@ curl -X GET "http://localhost:3000/api/admin/system-config/general" \
 ```json
 {
   "id": 1,
-  "site_name": "My Website",
-  "site_description": "Mô tả website",
+  "site_name": "Shop Online - Mua Sắm Trực Tuyến",
+  "site_description": "Shop Online - Cửa hàng mua sắm trực tuyến uy tín, đa dạng sản phẩm, giá tốt, giao hàng nhanh.",
   "site_logo": "https://example.com/logo.png",
   "site_favicon": "https://example.com/favicon.ico",
-  "site_email": "contact@example.com",
-  "site_phone": "0123456789",
+  "site_email": "contact@shoponline.com",
+  "site_phone": "19001234",
   "site_address": "123 Đường ABC, Quận XYZ, TP.HCM",
-  "site_copyright": "© 2024 My Website. All rights reserved.",
+  "site_copyright": "© 2024 Shop Online. All rights reserved.",
   "timezone": "Asia/Ho_Chi_Minh",
   "locale": "vi",
   "currency": "VND",
   "contact_channels": [
+    {
+      "type": "hotline",
+      "value": "19001234",
+      "label": "Hotline Tư Vấn",
+      "icon": "/icons/phone.png",
+      "url_template": "tel:{value}",
+      "enabled": true,
+      "sort_order": 1
+    },
     {
       "type": "zalo",
       "value": "0123456789",
@@ -64,27 +73,19 @@ curl -X GET "http://localhost:3000/api/admin/system-config/general" \
       "icon": "/icons/zalo.png",
       "url_template": "https://zalo.me/{value}",
       "enabled": true,
-      "sort_order": 1
-    },
-    {
-      "type": "messenger",
-      "value": "123456789",
-      "label": "Facebook Messenger",
-      "icon": "/icons/messenger.png",
-      "url_template": "https://m.me/{value}",
-      "enabled": true,
       "sort_order": 2
-    },
-    {
-      "type": "hotline",
-      "value": "19001234",
-      "label": "Hotline",
-      "icon": "/icons/phone.png",
-      "url_template": "tel:{value}",
-      "enabled": true,
-      "sort_order": 3
     }
   ],
+  "meta_title": "Shop Online - Mua Sắm Trực Tuyến | Giá Tốt, Giao Hàng Nhanh",
+  "meta_keywords": "mua sắm online, shop online, bán hàng trực tuyến, thương mại điện tử",
+  "og_title": "Shop Online - Mua Sắm Trực Tuyến | Giá Tốt, Giao Hàng Nhanh",
+  "og_description": "Shop Online - Cửa hàng mua sắm trực tuyến uy tín với hàng ngàn sản phẩm đa dạng.",
+  "og_image": "https://example.com/og-image.jpg",
+  "canonical_url": "https://shoponline.com",
+  "google_analytics_id": "G-XXXXXXXXXX",
+  "google_search_console": "abc123xyz...",
+  "facebook_pixel_id": "1234567890123456",
+  "twitter_site": "shoponline",
   "created_user_id": 1,
   "updated_user_id": 1,
   "created_at": "2024-01-01T00:00:00.000Z",
@@ -93,32 +94,36 @@ curl -X GET "http://localhost:3000/api/admin/system-config/general" \
 }
 ```
 
-#### Response Fields
+#### Response Fields - Chi tiết từng trường
 
-| Field | Type | Required | Mô tả | Hiển thị UI | Ghi chú |
+##### A. Thông tin cơ bản (Hiển thị trên UI)
+
+| Field | Type | Required | Mô tả | Gán vào đâu | Ghi chú |
 |-------|------|----------|-------|-------------|---------|
-| `id` | number | ✅ | ID của config | ❌ Không cần | Tự sinh từ API |
-| `site_name` | string | ✅ | Tên website | ✅ **Cần hiển thị** | Hiển thị ở header/footer |
-| `site_description` | string \| null | ❌ | Mô tả website | ✅ **Cần hiển thị** | Dùng cho SEO meta description |
-| `site_logo` | string \| null | ❌ | URL logo website | ✅ **Cần hiển thị** | Hiển thị ở header |
-| `site_favicon` | string \| null | ❌ | URL favicon | ✅ **Cần hiển thị** | Dùng cho browser tab icon |
-| `site_email` | string \| null | ❌ | Email liên hệ | ✅ **Cần hiển thị** | Hiển thị ở footer/contact |
-| `site_phone` | string \| null | ❌ | Số điện thoại | ✅ **Cần hiển thị** | Hiển thị ở footer/contact |
-| `site_address` | string \| null | ❌ | Địa chỉ | ✅ **Cần hiển thị** | Hiển thị ở footer |
-| `site_copyright` | string \| null | ❌ | Copyright text | ✅ **Cần hiển thị** | Hiển thị ở footer |
-| `timezone` | string | ✅ | Múi giờ | ⚠️ **Có thể cần** | Mặc định: `Asia/Ho_Chi_Minh` |
-| `locale` | string | ✅ | Ngôn ngữ | ⚠️ **Có thể cần** | Mặc định: `vi` |
-| `currency` | string | ✅ | Đơn vị tiền tệ | ⚠️ **Có thể cần** | Mặc định: `VND` |
-| `contact_channels` | array \| null | ❌ | Danh sách kênh liên hệ | ✅ **Cần hiển thị** | Xem chi tiết bên dưới |
-| `created_user_id` | number \| null | ❌ | User ID tạo | ❌ Không cần | Tự sinh từ API |
-| `updated_user_id` | number \| null | ❌ | User ID cập nhật | ❌ Không cần | Tự sinh từ API |
-| `created_at` | string (ISO 8601) | ✅ | Thời gian tạo | ❌ Không cần | Tự sinh từ API |
-| `updated_at` | string (ISO 8601) | ✅ | Thời gian cập nhật | ❌ Không cần | Tự sinh từ API |
-| `deleted_at` | string \| null | ❌ | Thời gian xóa | ❌ Không cần | Tự sinh từ API |
+| `site_name` | string | ✅ | Tên website | `<title>`, Header, Footer | Hiển thị ở header/footer |
+| `site_description` | string \| null | ❌ | Mô tả website | `<meta name="description">` | Dùng cho SEO meta description |
+| `site_logo` | string \| null | ❌ | URL logo website | `<img src="">` trong Header | Hiển thị ở header |
+| `site_favicon` | string \| null | ❌ | URL favicon | `<link rel="icon">` | Dùng cho browser tab icon |
+| `site_email` | string \| null | ❌ | Email liên hệ | Footer, Contact page | Hiển thị ở footer/contact |
+| `site_phone` | string \| null | ❌ | Số điện thoại | Footer, Contact page | Hiển thị ở footer/contact |
+| `site_address` | string \| null | ❌ | Địa chỉ | Footer, Contact page | Hiển thị ở footer |
+| `site_copyright` | string \| null | ❌ | Copyright text | Footer | Hiển thị ở footer |
 
-#### Contact Channels Structure
+##### B. Cấu hình hệ thống (Có thể cần hiển thị)
 
-`contact_channels` là một mảng các object với cấu trúc sau:
+| Field | Type | Required | Mô tả | Gán vào đâu | Ghi chú |
+|-------|------|----------|-------|-------------|---------|
+| `timezone` | string | ✅ | Múi giờ | Backend xử lý | Mặc định: `Asia/Ho_Chi_Minh` |
+| `locale` | string | ✅ | Ngôn ngữ | Backend xử lý | Mặc định: `vi` |
+| `currency` | string | ✅ | Đơn vị tiền tệ | Hiển thị giá sản phẩm | Mặc định: `VND` |
+
+##### C. Kênh liên hệ (Hiển thị trên UI)
+
+| Field | Type | Required | Mô tả | Gán vào đâu | Ghi chú |
+|-------|------|----------|-------|-------------|---------|
+| `contact_channels` | array \| null | ❌ | Danh sách kênh liên hệ | Footer, Sidebar, Floating button | Xem chi tiết bên dưới |
+
+**Contact Channels Structure:**
 
 | Field | Type | Required | Mô tả | Ví dụ |
 |-------|------|----------|-------|-------|
@@ -130,20 +135,36 @@ curl -X GET "http://localhost:3000/api/admin/system-config/general" \
 | `enabled` | boolean | ✅ | Bật/tắt hiển thị | `true`, `false` |
 | `sort_order` | number | ❌ | Thứ tự hiển thị (số nhỏ hơn sẽ hiển thị trước) | `1`, `2`, `3` |
 
-**Lưu ý cho Frontend:**
-- Chỉ hiển thị các channel có `enabled: true`.
-- Sắp xếp theo `sort_order` (số nhỏ hơn hiển thị trước). Nếu không có `sort_order`, giữ nguyên thứ tự trong mảng.
-- Khi click vào channel, sử dụng `url_template` để tạo URL:
-  - Thay `{value}` bằng `value` của channel.
-  - Nếu không có `url_template`, có thể xử lý theo `type`:
-    - `hotline`: `tel:{value}`
-    - `zalo`: `https://zalo.me/{value}`
-    - `messenger`: `https://m.me/{value}`
-    - `telegram`: `https://t.me/{value}`
-    - `whatsapp`: `https://wa.me/{value}`
-- Nếu có `icon`, hiển thị icon; nếu không, có thể dùng icon mặc định theo `type`.
-- Các trường `id`, `created_user_id`, `updated_user_id`, `created_at`, `updated_at`, `deleted_at` là các trường audit, không cần hiển thị trong form.
-- Các trường `timezone`, `locale`, `currency` có thể cần hiển thị nếu có chức năng cấu hình đa ngôn ngữ/đa tiền tệ.
+##### D. SEO Meta Tags (Gán vào `<head>`)
+
+| Field | Type | Required | Mô tả | Gán vào đâu | HTML Tag |
+|-------|------|----------|-------|-------------|----------|
+| `meta_title` | string \| null | ❌ | SEO title cho trang chủ | `<title>` | `<title>{meta_title}</title>` |
+| `meta_keywords` | string \| null | ❌ | SEO keywords | `<meta name="keywords">` | `<meta name="keywords" content="{meta_keywords}">` |
+| `og_title` | string \| null | ❌ | Open Graph title | `<meta property="og:title">` | `<meta property="og:title" content="{og_title}">` |
+| `og_description` | string \| null | ❌ | Open Graph description | `<meta property="og:description">` | `<meta property="og:description" content="{og_description}">` |
+| `og_image` | string \| null | ❌ | Open Graph image | `<meta property="og:image">` | `<meta property="og:image" content="{og_image}">` |
+| `canonical_url` | string \| null | ❌ | Canonical URL | `<link rel="canonical">` | `<link rel="canonical" href="{canonical_url}">` |
+
+##### E. Tracking & Analytics Scripts (Gán vào `<head>` hoặc trước `</body>`)
+
+| Field | Type | Required | Mô tả | Gán vào đâu | Cách sử dụng |
+|-------|------|----------|-------|-------------|-------------|
+| `google_analytics_id` | string \| null | ❌ | Google Analytics ID (GA4) | `<head>` | Load Google Analytics script |
+| `google_search_console` | string \| null | ❌ | Google Search Console verification code | `<head>` | `<meta name="google-site-verification" content="{google_search_console}">` |
+| `facebook_pixel_id` | string \| null | ❌ | Facebook Pixel ID | `<head>` | Load Facebook Pixel script |
+| `twitter_site` | string \| null | ❌ | Twitter site handle | `<head>` | `<meta name="twitter:site" content="@{twitter_site}">` |
+
+##### F. Trường API tự sinh (KHÔNG cần hiển thị trong UI)
+
+| Field | Type | Mô tả | Ghi chú |
+|-------|------|-------|---------|
+| `id` | number | ID của config | Tự sinh từ database |
+| `created_user_id` | number \| null | User ID tạo | Tự sinh từ API (lấy từ JWT token) |
+| `updated_user_id` | number \| null | User ID cập nhật | Tự sinh từ API (lấy từ JWT token) |
+| `created_at` | string (ISO 8601) | Thời gian tạo | Tự sinh từ database |
+| `updated_at` | string (ISO 8601) | Thời gian cập nhật | Tự sinh từ database |
+| `deleted_at` | string \| null | Thời gian xóa | Tự sinh từ database (soft delete) |
 
 ---
 
@@ -158,44 +179,36 @@ curl -X PUT "http://localhost:3000/api/admin/system-config/general" \
   -H "Authorization: Bearer {{auth_token}}" \
   -H "Content-Type: application/json" \
   -d '{
-    "site_name": "My Website",
+    "site_name": "Shop Online - Mua Sắm Trực Tuyến",
     "site_description": "Mô tả website mới",
     "site_logo": "https://example.com/logo.png",
     "site_favicon": "https://example.com/favicon.ico",
-    "site_email": "contact@example.com",
-    "site_phone": "0123456789",
+    "site_email": "contact@shoponline.com",
+    "site_phone": "19001234",
     "site_address": "123 Đường ABC, Quận XYZ, TP.HCM",
-    "site_copyright": "© 2024 My Website. All rights reserved.",
+    "site_copyright": "© 2024 Shop Online. All rights reserved.",
     "timezone": "Asia/Ho_Chi_Minh",
     "locale": "vi",
     "currency": "VND",
+    "meta_title": "Shop Online - Mua Sắm Trực Tuyến | Giá Tốt, Giao Hàng Nhanh",
+    "meta_keywords": "mua sắm online, shop online, bán hàng trực tuyến",
+    "og_title": "Shop Online - Mua Sắm Trực Tuyến",
+    "og_description": "Mô tả Open Graph",
+    "og_image": "https://example.com/og-image.jpg",
+    "canonical_url": "https://shoponline.com",
+    "google_analytics_id": "G-XXXXXXXXXX",
+    "google_search_console": "abc123xyz...",
+    "facebook_pixel_id": "1234567890123456",
+    "twitter_site": "shoponline",
     "contact_channels": [
-      {
-        "type": "zalo",
-        "value": "0123456789",
-        "label": "Chat Zalo",
-        "icon": "/icons/zalo.png",
-        "url_template": "https://zalo.me/{value}",
-        "enabled": true,
-        "sort_order": 1
-      },
-      {
-        "type": "messenger",
-        "value": "123456789",
-        "label": "Facebook Messenger",
-        "icon": "/icons/messenger.png",
-        "url_template": "https://m.me/{value}",
-        "enabled": true,
-        "sort_order": 2
-      },
       {
         "type": "hotline",
         "value": "19001234",
-        "label": "Hotline",
+        "label": "Hotline Tư Vấn",
         "icon": "/icons/phone.png",
         "url_template": "tel:{value}",
         "enabled": true,
-        "sort_order": 3
+        "sort_order": 1
       }
     ]
   }'
@@ -215,20 +228,20 @@ Tất cả các trường đều là **optional** (không bắt buộc). Chỉ g
   "site_phone": "string (max 20 chars)",
   "site_address": "string (text, không giới hạn)",
   "site_copyright": "string (max 255 chars)",
-  "timezone": "string (max 50 chars, ví dụ: Asia/Ho_Chi_Minh)",
-  "locale": "string (max 10 chars, ví dụ: vi, en)",
-  "currency": "string (max 10 chars, ví dụ: VND, USD)",
-  "contact_channels": [
-    {
-      "type": "string (required)",
-      "value": "string (required)",
-      "label": "string (max 255 chars, optional)",
-      "icon": "string (max 500 chars, URL, optional)",
-      "url_template": "string (max 500 chars, optional)",
-      "enabled": "boolean (required)",
-      "sort_order": "number (optional)"
-    }
-  ]
+  "timezone": "string (max 50 chars)",
+  "locale": "string (max 10 chars)",
+  "currency": "string (max 10 chars)",
+  "meta_title": "string (max 255 chars)",
+  "meta_keywords": "string (text, không giới hạn)",
+  "og_title": "string (max 255 chars)",
+  "og_description": "string (text, không giới hạn)",
+  "og_image": "string (max 500 chars, URL)",
+  "canonical_url": "string (max 500 chars, URL)",
+  "google_analytics_id": "string (max 50 chars)",
+  "google_search_console": "string (max 255 chars)",
+  "facebook_pixel_id": "string (max 50 chars)",
+  "twitter_site": "string (max 50 chars, không có @)",
+  "contact_channels": "array of objects (optional)"
 }
 ```
 
@@ -247,7 +260,17 @@ Tất cả các trường đều là **optional** (không bắt buộc). Chỉ g
 | `timezone` | String, max 50 characters (ví dụ: `Asia/Ho_Chi_Minh`, `UTC`) |
 | `locale` | String, max 10 characters (ví dụ: `vi`, `en`, `ja`) |
 | `currency` | String, max 10 characters (ví dụ: `VND`, `USD`, `EUR`) |
-| `contact_channels` | Array of objects, optional. Mỗi object phải có `type`, `value`, `enabled` (required), và các trường khác optional. Xem chi tiết ở bảng Contact Channels Structure bên trên. |
+| `meta_title` | String, max 255 characters |
+| `meta_keywords` | String, không giới hạn |
+| `og_title` | String, max 255 characters |
+| `og_description` | String, không giới hạn |
+| `og_image` | String, max 500 characters, nên là URL hợp lệ |
+| `canonical_url` | String, max 500 characters, nên là URL hợp lệ |
+| `google_analytics_id` | String, max 50 characters (ví dụ: `G-XXXXXXXXXX`) |
+| `google_search_console` | String, max 255 characters |
+| `facebook_pixel_id` | String, max 50 characters (ví dụ: `1234567890123456`) |
+| `twitter_site` | String, max 50 characters, không có dấu @ (ví dụ: `shoponline` thay vì `@shoponline`) |
+| `contact_channels` | Array of objects, optional. Mỗi object phải có `type`, `value`, `enabled` (required), và các trường khác optional. |
 
 #### Response
 
@@ -424,6 +447,203 @@ Response giống như [2.1. Admin - Lấy cấu hình email](#21-admin---lấy-c
 
 ---
 
+## Hướng dẫn sử dụng trong Frontend
+
+### 1. Lấy cấu hình từ API
+
+```typescript
+// Sử dụng Public API (có cache, không cần auth)
+async function getGeneralConfig() {
+  const response = await fetch('http://localhost:3000/api/public/system-config/general');
+  const config = await response.json();
+  return config;
+}
+```
+
+### 2. Gán vào HTML - Thông tin cơ bản
+
+```html
+<!-- Trong <head> -->
+<title>{config.meta_title || config.site_name}</title>
+<meta name="description" content="{config.site_description || ''}" />
+<link rel="icon" href="{config.site_favicon || '/default-favicon.ico'}" />
+
+<!-- Trong Header -->
+<img src="{config.site_logo}" alt="{config.site_name}" />
+<h1>{config.site_name}</h1>
+
+<!-- Trong Footer -->
+<p>{config.site_address}</p>
+<p>Email: {config.site_email}</p>
+<p>Phone: {config.site_phone}</p>
+<p>{config.site_copyright}</p>
+```
+
+### 3. Gán vào HTML - SEO Meta Tags
+
+```html
+<!-- Trong <head> -->
+<title>{config.meta_title || config.site_name}</title>
+<meta name="description" content="{config.site_description || ''}" />
+{config.meta_keywords && (
+  <meta name="keywords" content="{config.meta_keywords}" />
+)}
+{config.canonical_url && (
+  <link rel="canonical" href="{config.canonical_url}" />
+)}
+
+<!-- Open Graph Tags -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="{config.og_title || config.meta_title || config.site_name}" />
+<meta property="og:description" content="{config.og_description || config.site_description || ''}" />
+{config.og_image && (
+  <meta property="og:image" content="{config.og_image}" />
+)}
+{config.canonical_url && (
+  <meta property="og:url" content="{config.canonical_url}" />
+)}
+```
+
+### 4. Gán vào HTML - Tracking Scripts
+
+```html
+<!-- Google Analytics (GA4) -->
+{config.google_analytics_id && (
+  <>
+    <script async src={`https://www.googletagmanager.com/gtag/js?id=${config.google_analytics_id}`}></script>
+    <script dangerouslySetInnerHTML={{
+      __html: `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${config.google_analytics_id}');
+      `
+    }} />
+  </>
+)}
+
+<!-- Google Search Console -->
+{config.google_search_console && (
+  <meta name="google-site-verification" content={config.google_search_console} />
+)}
+
+<!-- Facebook Pixel -->
+{config.facebook_pixel_id && (
+  <script dangerouslySetInnerHTML={{
+    __html: `
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '${config.facebook_pixel_id}');
+      fbq('track', 'PageView');
+    `
+  }} />
+)}
+
+<!-- Twitter Card -->
+{config.twitter_site && (
+  <>
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content={`@${config.twitter_site}`} />
+    <meta name="twitter:creator" content={`@${config.twitter_site}`} />
+  </>
+)}
+```
+
+### 5. Hiển thị Contact Channels
+
+```typescript
+function ContactChannels({ channels }: { channels: ContactChannel[] }) {
+  // Lọc chỉ các channel enabled và sắp xếp
+  const enabledChannels = channels
+    .filter(ch => ch.enabled)
+    .sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
+
+  const handleClick = (channel: ContactChannel) => {
+    let url: string;
+    
+    if (channel.url_template) {
+      // Thay {value} bằng value thực tế
+      url = channel.url_template.replace('{value}', channel.value);
+    } else {
+      // Fallback URL theo type
+      const urlMap: Record<string, string> = {
+        'hotline': `tel:${channel.value}`,
+        'zalo': `https://zalo.me/${channel.value}`,
+        'messenger': `https://m.me/${channel.value}`,
+        'telegram': `https://t.me/${channel.value}`,
+        'whatsapp': `https://wa.me/${channel.value}`,
+      };
+      url = urlMap[channel.type] || '#';
+    }
+    
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div className="contact-channels">
+      {enabledChannels.map((channel, index) => (
+        <button
+          key={index}
+          onClick={() => handleClick(channel)}
+          title={channel.label || channel.type}
+        >
+          {channel.icon && (
+            <img src={channel.icon} alt={channel.label || channel.type} />
+          )}
+          <span>{channel.label || channel.type}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## Tóm tắt các trường cần hiển thị trong UI
+
+### General Config Form (Admin)
+
+**Các trường cần hiển thị:**
+- ✅ `site_name` - Input text
+- ✅ `site_description` - Textarea
+- ✅ `site_logo` - Input text (URL) hoặc file upload
+- ✅ `site_favicon` - Input text (URL) hoặc file upload
+- ✅ `site_email` - Input email
+- ✅ `site_phone` - Input text
+- ✅ `site_address` - Textarea
+- ✅ `site_copyright` - Input text
+- ✅ `meta_title` - Input text (SEO section)
+- ✅ `meta_keywords` - Textarea (SEO section)
+- ✅ `og_title` - Input text (SEO section)
+- ✅ `og_description` - Textarea (SEO section)
+- ✅ `og_image` - Input text (URL) hoặc file upload (SEO section)
+- ✅ `canonical_url` - Input text (URL) (SEO section)
+- ✅ `google_analytics_id` - Input text (Tracking section)
+- ✅ `google_search_console` - Input text (Tracking section)
+- ✅ `facebook_pixel_id` - Input text (Tracking section)
+- ✅ `twitter_site` - Input text (Tracking section)
+- ✅ `contact_channels` - Dynamic form/list
+- ⚠️ `timezone` - Select dropdown (nếu có chức năng đa múi giờ)
+- ⚠️ `locale` - Select dropdown (nếu có chức năng đa ngôn ngữ)
+- ⚠️ `currency` - Select dropdown (nếu có chức năng đa tiền tệ)
+
+**Các trường KHÔNG cần hiển thị (API tự sinh):**
+- ❌ `id`
+- ❌ `created_user_id`
+- ❌ `updated_user_id`
+- ❌ `created_at`
+- ❌ `updated_at`
+- ❌ `deleted_at`
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request
@@ -469,377 +689,6 @@ Khi có lỗi server:
 
 ---
 
-## Ví dụ sử dụng trong Frontend
-
-### TypeScript/JavaScript
-
-```typescript
-// 1. Lấy cấu hình chung (Public API - có cache)
-async function getGeneralConfig() {
-  const response = await fetch('http://localhost:3000/api/public/system-config/general');
-  const config = await response.json();
-  
-  // Sử dụng config
-  document.title = config.site_name;
-  document.querySelector('meta[name="description"]')?.setAttribute('content', config.site_description || '');
-  document.querySelector('link[rel="icon"]')?.setAttribute('href', config.site_favicon || '');
-  
-  // Hiển thị contact channels
-  if (config.contact_channels && config.contact_channels.length > 0) {
-    renderContactChannels(config.contact_channels);
-  }
-  
-  return config;
-}
-
-// Hiển thị và xử lý contact channels
-function renderContactChannels(channels: ContactChannel[]) {
-  // Lọc chỉ các channel enabled
-  const enabledChannels = channels
-    .filter(ch => ch.enabled)
-    .sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
-  
-  const container = document.getElementById('contact-channels');
-  if (!container) return;
-  
-  container.innerHTML = enabledChannels.map(channel => {
-    const url = channel.url_template 
-      ? channel.url_template.replace('{value}', channel.value)
-      : getDefaultUrl(channel.type, channel.value);
-    
-    const label = channel.label || channel.type;
-    const icon = channel.icon ? `<img src="${channel.icon}" alt="${label}" />` : '';
-    
-    return `
-      <a href="${url}" class="contact-channel" data-type="${channel.type}">
-        ${icon}
-        <span>${label}</span>
-      </a>
-    `;
-  }).join('');
-}
-
-// Hàm helper tạo URL mặc định nếu không có url_template
-function getDefaultUrl(type: string, value: string): string {
-  const urlMap: Record<string, string> = {
-    'hotline': `tel:${value}`,
-    'zalo': `https://zalo.me/${value}`,
-    'messenger': `https://m.me/${value}`,
-    'telegram': `https://t.me/${value}`,
-    'whatsapp': `https://wa.me/${value}`,
-  };
-  return urlMap[type] || `#`;
-}
-
-// 2. Lấy cấu hình chung (Admin API - real-time)
-async function getGeneralConfigAdmin(token: string) {
-  const response = await fetch('http://localhost:3000/api/admin/system-config/general', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  return await response.json();
-}
-
-// 3. Cập nhật cấu hình chung
-async function updateGeneralConfig(token: string, data: Partial<GeneralConfig>) {
-  const response = await fetch('http://localhost:3000/api/admin/system-config/general', {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-  return await response.json();
-}
-
-// 4. Lấy cấu hình email
-async function getEmailConfig(token: string) {
-  const response = await fetch('http://localhost:3000/api/admin/system-config/email', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  return await response.json();
-}
-
-// 5. Cập nhật cấu hình email (không đổi password)
-async function updateEmailConfig(token: string, data: Partial<EmailConfig>) {
-  // Không gửi smtp_password nếu không muốn đổi
-  const { smtp_password, ...updateData } = data;
-  
-  const response = await fetch('http://localhost:3000/api/admin/system-config/email', {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(updateData)
-  });
-  return await response.json();
-}
-
-// 6. Cập nhật cấu hình email (có đổi password)
-async function updateEmailConfigWithPassword(token: string, data: EmailConfig) {
-  const response = await fetch('http://localhost:3000/api/admin/system-config/email', {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data) // Bao gồm smtp_password mới
-  });
-  return await response.json();
-}
-
-// Type definitions
-interface ContactChannel {
-  type: string;
-  value: string;
-  label?: string;
-  icon?: string;
-  url_template?: string;
-  enabled: boolean;
-  sort_order?: number;
-}
-
-interface GeneralConfig {
-  id: number;
-  site_name: string;
-  site_description?: string | null;
-  site_logo?: string | null;
-  site_favicon?: string | null;
-  site_email?: string | null;
-  site_phone?: string | null;
-  site_address?: string | null;
-  site_copyright?: string | null;
-  timezone: string;
-  locale: string;
-  currency: string;
-  contact_channels?: ContactChannel[] | null;
-  created_user_id?: number | null;
-  updated_user_id?: number | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string | null;
-}
-
-interface EmailConfig {
-  id: number;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_secure: boolean;
-  smtp_username: string;
-  smtp_password: string; // Luôn là "******" khi get
-  from_email: string;
-  from_name: string;
-  reply_to_email?: string | null;
-  created_user_id?: number | null;
-  updated_user_id?: number | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string | null;
-}
-```
-
-### React Example
-
-```tsx
-import { useState, useEffect } from 'react';
-
-function GeneralConfigForm() {
-  const [config, setConfig] = useState<GeneralConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Lấy config từ Public API (có cache)
-    fetch('http://localhost:3000/api/public/system-config/general')
-      .then(res => res.json())
-      .then(data => {
-        setConfig(data);
-        setLoading(false);
-      });
-  }, []);
-
-  const handleUpdate = async (data: Partial<GeneralConfig>) => {
-    const token = localStorage.getItem('auth_token');
-    const response = await fetch('http://localhost:3000/api/admin/system-config/general', {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-    
-    if (response.ok) {
-      const updated = await response.json();
-      setConfig(updated);
-      alert('Cập nhật thành công!');
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-  if (!config) return <div>No config found</div>;
-
-  return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target as HTMLFormElement);
-      handleUpdate({
-        site_name: formData.get('site_name') as string,
-        site_description: formData.get('site_description') as string,
-        // ... các trường khác
-      });
-    }}>
-      <input 
-        name="site_name" 
-        defaultValue={config.site_name} 
-        placeholder="Tên website"
-      />
-      <textarea 
-        name="site_description" 
-        defaultValue={config.site_description || ''} 
-        placeholder="Mô tả website"
-      />
-      {/* Các trường khác... */}
-      <button type="submit">Cập nhật</button>
-    </form>
-  );
-}
-
-// Component hiển thị Contact Channels trên trang chủ
-function ContactChannels({ channels }: { channels: ContactChannel[] }) {
-  // Lọc và sắp xếp channels
-  const enabledChannels = channels
-    .filter(ch => ch.enabled)
-    .sort((a, b) => (a.sort_order || 999) - (b.sort_order || 999));
-
-  const handleChannelClick = (channel: ContactChannel) => {
-    let url: string;
-    
-    if (channel.url_template) {
-      // Thay {value} bằng value thực tế
-      url = channel.url_template.replace('{value}', channel.value);
-    } else {
-      // Fallback URL theo type
-      const urlMap: Record<string, string> = {
-        'hotline': `tel:${channel.value}`,
-        'zalo': `https://zalo.me/${channel.value}`,
-        'messenger': `https://m.me/${channel.value}`,
-        'telegram': `https://t.me/${channel.value}`,
-        'whatsapp': `https://wa.me/${channel.value}`,
-      };
-      url = urlMap[channel.type] || '#';
-    }
-    
-    window.open(url, '_blank');
-  };
-
-  return (
-    <div className="contact-channels">
-      {enabledChannels.map((channel, index) => (
-        <button
-          key={index}
-          className={`contact-channel contact-channel-${channel.type}`}
-          onClick={() => handleChannelClick(channel)}
-          title={channel.label || channel.type}
-        >
-          {channel.icon && (
-            <img src={channel.icon} alt={channel.label || channel.type} />
-          )}
-          <span>{channel.label || channel.type}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// Sử dụng trong component chính
-function HomePage() {
-  const [config, setConfig] = useState<GeneralConfig | null>(null);
-
-  useEffect(() => {
-    fetch('http://localhost:3000/api/public/system-config/general')
-      .then(res => res.json())
-      .then(data => setConfig(data));
-  }, []);
-
-  if (!config) return <div>Loading...</div>;
-
-  return (
-    <div>
-      {/* Nội dung trang chủ khác... */}
-      
-      {/* Hiển thị contact channels */}
-      {config.contact_channels && config.contact_channels.length > 0 && (
-        <ContactChannels channels={config.contact_channels} />
-      )}
-    </div>
-  );
-}
-```
-
----
-
-## Tóm tắt các trường cần hiển thị trong UI
-
-### General Config Form
-
-**Các trường cần hiển thị:**
-- ✅ `site_name` - Input text
-- ✅ `site_description` - Textarea
-- ✅ `site_logo` - Input text (URL) hoặc file upload
-- ✅ `site_favicon` - Input text (URL) hoặc file upload
-- ✅ `site_email` - Input email
-- ✅ `site_phone` - Input text
-- ✅ `site_address` - Textarea
-- ✅ `site_copyright` - Input text
-- ✅ `contact_channels` - Dynamic form/list (xem chi tiết bên dưới)
-- ⚠️ `timezone` - Select dropdown (nếu có chức năng đa múi giờ)
-- ⚠️ `locale` - Select dropdown (nếu có chức năng đa ngôn ngữ)
-- ⚠️ `currency` - Select dropdown (nếu có chức năng đa tiền tệ)
-
-**Các trường KHÔNG cần hiển thị:**
-- ❌ `id`, `created_user_id`, `updated_user_id`, `created_at`, `updated_at`, `deleted_at`
-
-#### Contact Channels Form (Admin)
-
-**Các trường cần hiển thị cho mỗi channel:**
-- ✅ `type` - Select dropdown (zalo, messenger, hotline, telegram, whatsapp, hoặc custom)
-- ✅ `value` - Input text (số điện thoại, username, ID...)
-- ✅ `label` - Input text (tên hiển thị)
-- ✅ `icon` - Input text (URL) hoặc file upload
-- ✅ `url_template` - Input text (template URL với {value})
-- ✅ `enabled` - Checkbox hoặc toggle
-- ✅ `sort_order` - Input number (thứ tự hiển thị)
-
-**Gợi ý UI:**
-- Hiển thị dạng danh sách với nút "Thêm channel mới", "Xóa channel"
-- Cho phép kéo thả để sắp xếp thứ tự (sẽ cập nhật `sort_order` tự động)
-- Preview icon nếu có
-- Preview URL khi nhập `url_template` và `value`
-
-### Email Config Form
-
-**Các trường cần hiển thị:**
-- ✅ `smtp_host` - Input text
-- ✅ `smtp_port` - Input number
-- ✅ `smtp_secure` - Checkbox hoặc toggle
-- ✅ `smtp_username` - Input text
-- ✅ `smtp_password` - Input password (chỉ hiển thị khi muốn đổi, có thể có checkbox "Đổi password")
-- ✅ `from_email` - Input email
-- ✅ `from_name` - Input text
-- ✅ `reply_to_email` - Input email (optional)
-
-**Các trường KHÔNG cần hiển thị:**
-- ❌ `id`, `created_user_id`, `updated_user_id`, `created_at`, `updated_at`, `deleted_at`
-
----
-
 ## Lưu ý quan trọng
 
 1. **Cache:** Public API có cache 1 giờ, nên dữ liệu có thể không cập nhật ngay sau khi admin thay đổi.
@@ -851,3 +700,12 @@ function HomePage() {
    - Nếu muốn xóa tất cả channels, gửi `"contact_channels": []` hoặc `"contact_channels": null`.
    - Chỉ các channel có `enabled: true` mới được hiển thị trên frontend.
    - Frontend nên sắp xếp theo `sort_order` (số nhỏ hơn hiển thị trước).
+6. **SEO Fields:**
+   - Tất cả các trường SEO đều optional, có thể để null.
+   - Nếu không có `meta_title`, dùng `site_name` làm fallback.
+   - Nếu không có `og_title`, dùng `meta_title` hoặc `site_name` làm fallback.
+   - Nếu không có `og_description`, dùng `site_description` làm fallback.
+7. **Tracking Scripts:**
+   - Tất cả các trường tracking đều optional.
+   - Chỉ load script khi có giá trị (không null).
+   - `twitter_site` không cần dấu @ khi lưu (ví dụ: `shoponline` thay vì `@shoponline`).

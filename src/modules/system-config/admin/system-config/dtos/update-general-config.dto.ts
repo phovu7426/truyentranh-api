@@ -91,4 +91,53 @@ export class UpdateGeneralConfigDto {
   @ValidateNested({ each: true })
   @Type(() => ContactChannelDto)
   contact_channels?: ContactChannel[];
+
+  // SEO fields
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  meta_title?: string;
+
+  @IsString()
+  @IsOptional()
+  meta_keywords?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  og_title?: string;
+
+  @IsString()
+  @IsOptional()
+  og_description?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  og_image?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  canonical_url?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  google_analytics_id?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  google_search_console?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  facebook_pixel_id?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  twitter_site?: string;
 }

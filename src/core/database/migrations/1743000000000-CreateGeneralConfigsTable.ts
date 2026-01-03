@@ -84,6 +84,65 @@ export class CreateGeneralConfigsTable1743000000000 implements MigrationInterfac
             type: 'json',
             isNullable: true,
           },
+          // SEO fields
+          {
+            name: 'meta_title',
+            type: 'varchar',
+            length: '255',
+            isNullable: true,
+          },
+          {
+            name: 'meta_keywords',
+            type: 'text',
+            isNullable: true,
+          },
+          {
+            name: 'og_title',
+            type: 'varchar',
+            length: '255',
+            isNullable: true,
+          },
+          {
+            name: 'og_description',
+            type: 'text',
+            isNullable: true,
+          },
+          {
+            name: 'og_image',
+            type: 'varchar',
+            length: '500',
+            isNullable: true,
+          },
+          {
+            name: 'canonical_url',
+            type: 'varchar',
+            length: '500',
+            isNullable: true,
+          },
+          {
+            name: 'google_analytics_id',
+            type: 'varchar',
+            length: '50',
+            isNullable: true,
+          },
+          {
+            name: 'google_search_console',
+            type: 'varchar',
+            length: '255',
+            isNullable: true,
+          },
+          {
+            name: 'facebook_pixel_id',
+            type: 'varchar',
+            length: '50',
+            isNullable: true,
+          },
+          {
+            name: 'twitter_site',
+            type: 'varchar',
+            length: '50',
+            isNullable: true,
+          },
           {
             name: 'created_user_id',
             type: 'bigint',

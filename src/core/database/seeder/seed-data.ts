@@ -18,6 +18,7 @@ import { SeedBanners } from '@/core/database/seeder/seed-banners';
 import { SeedContacts } from '@/core/database/seeder/seed-contacts';
 import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs';
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
+import { SeedGroups } from '@/core/database/seeder/seed-groups';
 
 @Injectable()
 export class SeedService {
@@ -43,6 +44,7 @@ export class SeedService {
     private readonly seedContacts: SeedContacts,
     private readonly seedGeneralConfigs: SeedGeneralConfigs,
     private readonly seedEmailConfigs: SeedEmailConfigs,
+    private readonly seedGroups: SeedGroups,
   ) { }
 
   async seedAll(): Promise<void> {
@@ -50,17 +52,18 @@ export class SeedService {
 
     try {
       // Seed in order:
-      // permissions -> roles -> users
+      // permissions -> roles -> users -> groups (contexts)
       await this.seedPermissions.seed();
       await this.seedRoles.seed();
       await this.seedUsers.seed();
+      await this.seedGroups.seed();
 
       // blog demo
       await this.seedPostCategories.seed();
       await this.seedPostTags.seed();
       await this.seedPosts.seed();
 
-      // ecommerce demo
+      // ecommerce demo (gắn với group/context nếu có)
       await this.seedProductCategories.seed();
       await this.seedProductAttributes.seed();
       await this.seedProducts.seed();
@@ -79,6 +82,9 @@ export class SeedService {
       // System config
       await this.seedGeneralConfigs.seed();
       await this.seedEmailConfigs.seed();
+
+      // Groups and contexts (sau khi có users và system context)
+      await this.seedGroups.seed();
 
       this.logger.log('Database seeding completed successfully');
     } catch (error) {
@@ -117,8 +123,8 @@ export class SeedService {
         // Clear junction tables first (many-to-many)
         await truncateTable('post_posttag');
         await truncateTable('post_postcategory');
-        await truncateTable('user_permissions');
-        await truncateTable('user_roles');
+        await truncateTable('user_role_assignments');
+        await truncateTable('user_groups');
         await truncateTable('role_has_permissions');
 
         // Clear main tables

@@ -42,10 +42,12 @@ export class AuthService {
       );
     }
 
-    const user = await this.userRepository.findOne({
-      where: { email: dto.email },
-      select: { id: true, email: true, username: true, password: true, status: true, },
-    });
+    // Tìm user bằng email (case-insensitive)
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = LOWER(:email)', { email: dto.email })
+      .select(['user.id', 'user.email', 'user.username', 'user.password', 'user.status'])
+      .getOne();
 
     let authError: string | null = null;
 

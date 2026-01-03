@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
-import { Menu } from '@/shared/entities/menu.entity';
+import { Menu, MenuPermission } from '@/shared/entities/menu.entity';
 import { Permission } from '@/shared/entities/permission.entity';
 import { User } from '@/shared/entities/user.entity';
 import { MenuType } from '@/shared/enums/menu-type.enum';
@@ -19,15 +19,16 @@ export class SeedMenus {
     const permRepo = this.dataSource.getRepository(Permission);
     const userRepo = this.dataSource.getRepository(User);
 
-    // Check if menus already exist
-    const existingMenus = await menuRepo.count();
-    if (existingMenus > 0) {
-      this.logger.log('Menus already seeded, skipping...');
-      return;
-    }
+    // Xóa tất cả menu cũ để tạo lại từ đầu
+    this.logger.log('Clearing existing menus...');
+    await menuRepo
+      .createQueryBuilder()
+      .delete()
+      .execute();
+    this.logger.log('Cleared all existing menus');
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
+    const adminUser = await userRepo.findOne({ where: { username: 'systemadmin' } as any });
     const defaultUserId = adminUser?.id ?? 1;
 
     // Get permissions
@@ -35,24 +36,29 @@ export class SeedMenus {
     const permMap = new Map<string, Permission>();
     permissions.forEach(perm => permMap.set(perm.code, perm));
 
-    // Seed menus based on frontend structure
+    // Seed menus - Mỗi menu chỉ có 1 bản ghi duy nhất, không phân biệt context
+    // Menu ROUTE: có 1 permission (dùng required_permission_id)
+    // Menu GROUP: có thể có nhiều permissions (dùng menu_permissions table)
     const menuData = [
+      // ========== DASHBOARD ==========
       {
-        code: 'admin.dashboard',
+        code: 'dashboard',
         name: 'Dashboard',
-        path: '/admin',
+        path: '/admin/dashboard',
         api_path: 'api/admin/dashboard',
         icon: '📊',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 10,
+        sort_order: 1,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'dashboard.read',
+        permission_code: 'dashboard.manage',
       },
+      
+      // ========== QUẢN LÝ TÀI KHOẢN (GROUP - check nhiều quyền) ==========
       {
-        code: 'admin.account-management',
+        code: 'account-management',
         name: 'Quản lý tài khoản',
         path: '/admin/users',
         api_path: 'api/admin/users',
@@ -60,143 +66,168 @@ export class SeedMenus {
         type: MenuType.GROUP,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 20,
+        sort_order: 10,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'user.manage',
+        permission_code: 'user.manage', // Permission chính
+        permission_codes: ['user.manage', 'role.manage', 'permission.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.users',
+        code: 'users',
         name: 'Tài khoản',
         path: '/admin/users',
         api_path: 'api/admin/users',
         icon: '👤',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.account-management',
+        parent_code: 'account-management',
         sort_order: 10,
         is_public: false,
         show_in_menu: true,
         permission_code: 'user.manage',
       },
       {
-        code: 'admin.roles',
+        code: 'roles',
         name: 'Vai trò',
         path: '/admin/roles',
         api_path: 'api/admin/roles',
-        icon: '👑',
+        icon: '👔',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.account-management',
+        parent_code: 'account-management',
         sort_order: 20,
         is_public: false,
         show_in_menu: true,
         permission_code: 'role.manage',
       },
       {
-        code: 'admin.permissions',
+        code: 'permissions',
         name: 'Quyền',
         path: '/admin/permissions',
         api_path: 'api/admin/permissions',
         icon: '🔑',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.account-management',
+        parent_code: 'account-management',
         sort_order: 30,
         is_public: false,
         show_in_menu: true,
         permission_code: 'permission.manage',
       },
+      
+      // ========== NHÓM & CONTEXT (GROUP) ==========
       {
-        code: 'admin.products',
-        name: 'Quản lý sản phẩm',
-        path: '/admin/products',
-        api_path: 'api/admin/products',
-        icon: '📦',
+        code: 'group-management',
+        name: 'Nhóm & Context',
+        path: '/admin/groups',
+        api_path: 'api/admin/groups',
+        icon: '👪',
         type: MenuType.GROUP,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 30,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'product.manage',
-      },
-      {
-        code: 'admin.products.list',
-        name: 'Sản phẩm',
-        path: '/admin/products',
-        api_path: 'api/admin/products',
-        icon: '📦',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.products',
-        sort_order: 10,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'product.manage',
-      },
-      {
-        code: 'admin.product-variants',
-        name: 'Biến thể sản phẩm',
-        path: '/admin/product-variants',
-        api_path: 'api/admin/product-variants',
-        icon: '🔀',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.products',
         sort_order: 20,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'product.manage',
+        permission_code: 'group.manage',
+        permission_codes: ['group.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.product-categories',
-        name: 'Danh mục sản phẩm',
-        path: '/admin/product-categories',
-        api_path: 'api/admin/product-categories',
-        icon: '🗂️',
+        code: 'groups',
+        name: 'Nhóm',
+        path: '/admin/groups',
+        api_path: 'api/admin/groups',
+        icon: '👪',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.products',
+        parent_code: 'group-management',
+        sort_order: 10,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'group.manage',
+      },
+      {
+        code: 'contexts',
+        name: 'Context',
+        path: '/admin/contexts',
+        api_path: 'api/admin/contexts',
+        icon: '🌐',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'group-management',
+        sort_order: 20,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'group.manage',
+      },
+      
+      // ========== CẤU HÌNH HỆ THỐNG (GROUP) ==========
+      {
+        code: 'config-management',
+        name: 'Cấu hình hệ thống',
+        path: '/admin/system-config/general',
+        api_path: 'api/admin/system-config/general',
+        icon: '⚙️',
+        type: MenuType.GROUP,
+        status: BasicStatus.Active,
+        parent_id: null,
         sort_order: 30,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'product.manage',
+        permission_code: 'config.manage',
+        permission_codes: ['config.manage'], // Có thể thêm permissions khác nếu cần
       },
       {
-        code: 'admin.product-attributes',
-        name: 'Thuộc tính sản phẩm',
-        path: '/admin/product-attributes',
-        api_path: 'api/admin/product-attributes',
-        icon: '🧩',
+        code: 'config-general',
+        name: 'Cấu hình chung',
+        path: '/admin/system-config/general',
+        api_path: 'api/admin/system-config/general',
+        icon: '📋',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.products',
-        sort_order: 40,
+        parent_code: 'config-management',
+        sort_order: 10,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'product.manage',
+        permission_code: 'config.manage',
       },
       {
-        code: 'admin.product-attribute-values',
-        name: 'Giá trị thuộc tính',
-        path: '/admin/product-attribute-values',
-        api_path: 'api/admin/product-attribute-values',
-        icon: '📝',
+        code: 'config-email',
+        name: 'Cấu hình Email',
+        path: '/admin/system-config/email',
+        api_path: 'api/admin/system-config/email',
+        icon: '📧',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.products',
-        sort_order: 50,
+        parent_code: 'config-management',
+        sort_order: 20,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'product.manage',
+        permission_code: 'config.manage',
       },
+      
+      // ========== MENU ==========
       {
-        code: 'admin.posts',
-        name: 'Quản lý nội dung',
+        code: 'menus',
+        name: 'Menu',
+        path: '/admin/menus',
+        api_path: 'api/admin/menus',
+        icon: '📑',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_id: null,
+        sort_order: 31,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'menu.manage',
+      },
+      
+      // ========== BÀI VIẾT (GROUP) ==========
+      {
+        code: 'post-management',
+        name: 'Bài viết',
         path: '/admin/posts',
         api_path: 'api/admin/posts',
-        icon: '📰',
+        icon: '📝',
         type: MenuType.GROUP,
         status: BasicStatus.Active,
         parent_id: null,
@@ -204,51 +235,141 @@ export class SeedMenus {
         is_public: false,
         show_in_menu: true,
         permission_code: 'post.manage',
+        permission_codes: ['post.manage', 'post_category.manage', 'post_tag.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.posts.list',
-        name: 'Tin tức',
+        code: 'posts',
+        name: 'Bài viết',
         path: '/admin/posts',
         api_path: 'api/admin/posts',
-        icon: '📰',
+        icon: '📄',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.posts',
+        parent_code: 'post-management',
         sort_order: 10,
         is_public: false,
         show_in_menu: true,
         permission_code: 'post.manage',
       },
       {
-        code: 'admin.post-categories',
+        code: 'post-categories',
         name: 'Danh mục bài viết',
         path: '/admin/post-categories',
         api_path: 'api/admin/post-categories',
-        icon: '📁',
+        icon: '📂',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.posts',
+        parent_code: 'post-management',
         sort_order: 20,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'post.manage',
+        permission_code: 'post_category.manage',
       },
       {
-        code: 'admin.post-tags',
+        code: 'post-tags',
         name: 'Thẻ bài viết',
         path: '/admin/post-tags',
         api_path: 'api/admin/post-tags',
         icon: '🏷️',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.posts',
+        parent_code: 'post-management',
         sort_order: 30,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'post.manage',
+        permission_code: 'post_tag.manage',
+      },
+      
+      // ========== SẢN PHẨM (GROUP - check nhiều quyền) ==========
+      {
+        code: 'product-management',
+        name: 'Sản phẩm',
+        path: '/admin/products',
+        api_path: 'api/admin/products',
+        icon: '📦',
+        type: MenuType.GROUP,
+        status: BasicStatus.Active,
+        parent_id: null,
+        sort_order: 50,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product.manage', // Permission chính
+        permission_codes: ['product.manage', 'product_category.manage', 'product_attribute.manage', 'product_attribute_value.manage', 'product_variant.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.orders',
+        code: 'products',
+        name: 'Sản phẩm',
+        path: '/admin/products',
+        api_path: 'api/admin/products',
+        icon: '📦',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'product-management',
+        sort_order: 10,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product.manage',
+      },
+      {
+        code: 'product-categories',
+        name: 'Danh mục sản phẩm',
+        path: '/admin/product-categories',
+        api_path: 'api/admin/product-categories',
+        icon: '📂',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'product-management',
+        sort_order: 20,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product_category.manage',
+      },
+      {
+        code: 'product-attributes',
+        name: 'Thuộc tính sản phẩm',
+        path: '/admin/product-attributes',
+        api_path: 'api/admin/product-attributes',
+        icon: '🏷️',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'product-management',
+        sort_order: 30,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product_attribute.manage',
+      },
+      {
+        code: 'product-attribute-values',
+        name: 'Giá trị thuộc tính',
+        path: '/admin/product-attribute-values',
+        api_path: 'api/admin/product-attribute-values',
+        icon: '🔢',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'product-management',
+        sort_order: 40,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product_attribute_value.manage',
+      },
+      {
+        code: 'product-variants',
+        name: 'Biến thể sản phẩm',
+        path: '/admin/product-variants',
+        api_path: 'api/admin/product-variants',
+        icon: '🔄',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'product-management',
+        sort_order: 50,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'product_variant.manage',
+      },
+      
+      // ========== ĐƠN HÀNG ==========
+      {
+        code: 'orders',
         name: 'Đơn hàng',
         path: '/admin/orders',
         api_path: 'api/admin/orders',
@@ -256,125 +377,167 @@ export class SeedMenus {
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 50,
+        sort_order: 60,
         is_public: false,
         show_in_menu: true,
         permission_code: 'order.manage',
       },
+      
+      // ========== KHO HÀNG (GROUP - check nhiều quyền) ==========
       {
-        code: 'admin.payment-shipping',
-        name: 'Quản lý thanh toán & vận chuyển',
-        path: '/admin/payment-methods',
-        api_path: 'api/admin/payment-methods',
-        icon: '💳',
+        code: 'warehouse-management',
+        name: 'Kho hàng',
+        path: '/admin/warehouses',
+        api_path: 'api/admin/warehouses',
+        icon: '🏭',
         type: MenuType.GROUP,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 60,
+        sort_order: 70,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'payment_method.manage',
+        permission_code: 'warehouse.manage', // Permission chính
+        permission_codes: ['warehouse.manage', 'warehouse_inventory.manage', 'warehouse_transfer.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.payment-methods',
-        name: 'Phương thức thanh toán',
-        path: '/admin/payment-methods',
-        api_path: 'api/admin/payment-methods',
-        icon: '💳',
+        code: 'warehouses',
+        name: 'Kho hàng',
+        path: '/admin/warehouses',
+        api_path: 'api/admin/warehouses',
+        icon: '🏭',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.payment-shipping',
+        parent_code: 'warehouse-management',
         sort_order: 10,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'payment_method.manage',
+        permission_code: 'warehouse.manage',
       },
       {
-        code: 'admin.shipping-methods',
-        name: 'Phương thức vận chuyển',
-        path: '/admin/shipping-methods',
-        api_path: 'api/admin/shipping-methods',
-        icon: '🚚',
+        code: 'warehouse-inventory',
+        name: 'Tồn kho',
+        path: '/admin/warehouses/inventory',
+        api_path: 'api/admin/warehouses/:id/inventory',
+        icon: '📊',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.payment-shipping',
+        parent_code: 'warehouse-management',
         sort_order: 20,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'shipping_method.manage',
+        permission_code: 'warehouse_inventory.manage',
       },
       {
-        code: 'admin.coupons',
-        name: 'Quản lý khuyến mãi',
+        code: 'warehouse-transfers',
+        name: 'Chuyển kho',
+        path: '/admin/warehouses/transfers',
+        api_path: 'api/admin/warehouses/transfers',
+        icon: '🚚',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_code: 'warehouse-management',
+        sort_order: 30,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'warehouse_transfer.manage',
+      },
+      
+      // ========== KHUYẾN MÃI ==========
+      {
+        code: 'coupons',
+        name: 'Mã giảm giá',
         path: '/admin/coupons',
         api_path: 'api/admin/coupons',
         icon: '🎟️',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 70,
+        sort_order: 80,
         is_public: false,
         show_in_menu: true,
         permission_code: 'coupon.manage',
       },
+      
+      // ========== PHƯƠNG THỨC THANH TOÁN ==========
       {
-        code: 'admin.warehouses',
-        name: 'Quản lý kho hàng',
-        path: '/admin/warehouses',
-        api_path: 'api/admin/warehouses',
-        icon: '📦',
+        code: 'payment-methods',
+        name: 'Phương thức thanh toán',
+        path: '/admin/payment-methods',
+        api_path: 'api/admin/payment-methods',
+        icon: '💳',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_id: null,
+        sort_order: 90,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'payment_method.manage',
+      },
+      
+      // ========== PHƯƠNG THỨC VẬN CHUYỂN ==========
+      {
+        code: 'shipping-methods',
+        name: 'Phương thức vận chuyển',
+        path: '/admin/shipping-methods',
+        api_path: 'api/admin/shipping-methods',
+        icon: '🚚',
+        type: MenuType.ROUTE,
+        status: BasicStatus.Active,
+        parent_id: null,
+        sort_order: 91,
+        is_public: false,
+        show_in_menu: true,
+        permission_code: 'shipping_method.manage',
+      },
+      
+      // ========== BANNER (GROUP - check nhiều quyền) ==========
+      {
+        code: 'banner-management',
+        name: 'Banner',
+        path: '/admin/banners',
+        api_path: 'api/admin/banners',
+        icon: '🖼️',
         type: MenuType.GROUP,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 80,
+        sort_order: 100,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'warehouse.manage',
+        permission_code: 'banner.manage', // Permission chính
+        permission_codes: ['banner.manage', 'banner_location.manage'], // Nhiều quyền cho group
       },
       {
-        code: 'admin.warehouses.list',
-        name: 'Kho hàng',
-        path: '/admin/warehouses',
-        api_path: 'api/admin/warehouses',
-        icon: '📦',
+        code: 'banners',
+        name: 'Banner',
+        path: '/admin/banners',
+        api_path: 'api/admin/banners',
+        icon: '🖼️',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.warehouses',
+        parent_code: 'banner-management',
         sort_order: 10,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'warehouse.manage',
+        permission_code: 'banner.manage',
       },
       {
-        code: 'admin.warehouses.inventory',
-        name: 'Tồn kho',
-        path: '/admin/warehouses/inventory',
-        api_path: 'api/admin/warehouses/inventory',
-        icon: '📊',
+        code: 'banner-locations',
+        name: 'Vị trí Banner',
+        path: '/admin/banner-locations',
+        api_path: 'api/admin/banner-locations',
+        icon: '📍',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
-        parent_code: 'admin.warehouses',
+        parent_code: 'banner-management',
         sort_order: 20,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'warehouse.manage',
+        permission_code: 'banner_location.manage',
       },
+      
+      // ========== LIÊN HỆ ==========
       {
-        code: 'admin.warehouses.transfers',
-        name: 'Chuyển kho',
-        path: '/admin/warehouses/transfers',
-        api_path: 'api/admin/warehouses/transfers',
-        icon: '🔄',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.warehouses',
-        sort_order: 30,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'warehouse.manage',
-      },
-      {
-        code: 'admin.contacts',
+        code: 'contacts',
         name: 'Liên hệ',
         path: '/admin/contacts',
         api_path: 'api/admin/contacts',
@@ -382,110 +545,30 @@ export class SeedMenus {
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 90,
+        sort_order: 110,
         is_public: false,
         show_in_menu: true,
         permission_code: 'contact.manage',
       },
+      
+      // ========== THÔNG BÁO ==========
       {
-        code: 'admin.system-configs',
-        name: 'Cấu hình hệ thống',
-        path: '/admin/system-configs',
-        api_path: 'api/admin/system-configs',
-        icon: '⚙️',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
-        parent_id: null,
-        sort_order: 100,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'system_config.manage',
-      },
-      {
-        code: 'admin.system-configs.general',
-        name: 'Cài đặt chung',
-        path: '/admin/system-configs/general',
-        api_path: 'api/admin/system-config/general',
-        icon: '⚙️',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.system-configs',
-        sort_order: 10,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'system_config.manage',
-      },
-      {
-        code: 'admin.system-configs.email',
-        name: 'Cấu hình Email',
-        path: '/admin/system-configs/email',
-        api_path: 'api/admin/system-config/email',
-        icon: '📧',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.system-configs',
-        sort_order: 20,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'system_config.manage',
-      },
-      {
-        code: 'admin.menus',
-        name: 'Quản lý Menu',
-        path: '/admin/menus',
-        api_path: 'api/admin/menus',
-        icon: '⚙️',
+        code: 'notifications',
+        name: 'Thông báo',
+        path: '/admin/notifications',
+        api_path: 'api/admin/notifications',
+        icon: '🔔',
         type: MenuType.ROUTE,
         status: BasicStatus.Active,
         parent_id: null,
-        sort_order: 110,
+        sort_order: 120,
         is_public: false,
         show_in_menu: true,
-        permission_code: 'menu.manage',
-      },
-      {
-        code: 'admin.banners',
-        name: 'Quản lý Banner',
-        path: '/admin/banners',
-        api_path: 'api/admin/banners',
-        icon: '🖼️',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
-        parent_id: null,
-        sort_order: 35,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'banner.manage',
-      },
-      {
-        code: 'admin.banner-locations',
-        name: 'Vị trí Banner',
-        path: '/admin/banner-locations',
-        api_path: 'api/admin/banner-locations',
-        icon: '📍',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.banners',
-        sort_order: 10,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'banner.manage',
-      },
-      {
-        code: 'admin.banners.list',
-        name: 'Danh sách Banner',
-        path: '/admin/banners',
-        api_path: 'api/admin/banners',
-        icon: '🖼️',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_code: 'admin.banners',
-        sort_order: 20,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'banner.manage',
+        permission_code: 'notification.manage',
       },
     ];
+
+    this.logger.log(`Will create ${menuData.length} menus (mỗi menu chỉ có 1 permission)`);
 
     const createdMenus = new Map<string, Menu>();
 
@@ -493,18 +576,29 @@ export class SeedMenus {
     const sortedMenus = this.sortMenusByParent(menuData);
 
     for (const menuItem of sortedMenus) {
+      
       let parent: Menu | null = null;
       if (menuItem.parent_code) {
         parent = createdMenus.get(menuItem.parent_code) || null;
         if (!parent) {
-          this.logger.warn(`Parent menu not found for ${menuItem.code}, skipping parent relation`);
+          // Tìm parent trong DB nếu chưa có trong createdMenus
+          parent = await menuRepo.findOne({ where: { code: menuItem.parent_code } as any });
+          if (parent) {
+            createdMenus.set(parent.code, parent);
+          } else {
+            this.logger.warn(`Parent menu not found for ${menuItem.code}, skipping parent relation`);
+          }
         }
-      } else if (menuItem.parent_id !== null && menuItem.parent_id !== undefined) {
-        // This shouldn't happen in seed data, but handle it anyway
-        parent = createdMenus.get(String(menuItem.parent_id)) || null;
       }
 
-      const permission = menuItem.permission_code ? permMap.get(menuItem.permission_code) : null;
+      // Menu có 1 permission chính (required_permission)
+      let requiredPermission: Permission | null = null;
+      if (menuItem.permission_code) {
+        requiredPermission = permMap.get(menuItem.permission_code) || null;
+        if (!requiredPermission) {
+          this.logger.warn(`Permission ${menuItem.permission_code} not found for menu ${menuItem.code}`);
+        }
+      }
 
       const menu = menuRepo.create({
         code: menuItem.code,
@@ -518,17 +612,38 @@ export class SeedMenus {
         sort_order: menuItem.sort_order,
         is_public: menuItem.is_public,
         show_in_menu: menuItem.show_in_menu,
-        required_permission: permission,
+        required_permission: requiredPermission, // Permission chính
         created_user_id: defaultUserId,
         updated_user_id: defaultUserId,
       });
 
       const saved = await menuRepo.save(menu);
+      
+      // Nếu là menu GROUP và có nhiều permissions, tạo MenuPermission records
+      if (saved.type === MenuType.GROUP && menuItem.permission_codes && Array.isArray(menuItem.permission_codes)) {
+        const menuPermissionRepo = this.dataSource.getRepository(MenuPermission);
+        for (const permCode of menuItem.permission_codes) {
+          const perm = permMap.get(permCode);
+          if (perm) {
+            const menuPermission = menuPermissionRepo.create({
+              menu_id: saved.id,
+              permission_id: perm.id,
+            });
+            await menuPermissionRepo.save(menuPermission);
+            this.logger.log(`  → Added permission ${permCode} to menu group ${saved.code}`);
+          } else {
+            this.logger.warn(`  → Permission ${permCode} not found for menu group ${saved.code}`);
+          }
+        }
+      }
+      
       createdMenus.set(saved.code, saved);
-      this.logger.log(`Created menu: ${saved.code}${parent ? ` (parent: ${parent.code})` : ''}`);
+      this.logger.log(`Created menu: ${saved.code}${parent ? ` (parent: ${parent.code})` : ''}${requiredPermission ? ` (permission: ${requiredPermission.code})` : ''}`);
     }
 
-    this.logger.log(`Menus seeding completed - Total: ${createdMenus.size}`);
+    this.logger.log(`✅ Menus seeding completed - Total: ${createdMenus.size}`);
+    this.logger.log(`   - Menu ROUTE: có 1 permission (required_permission)`);
+    this.logger.log(`   - Menu GROUP: có thể có nhiều permissions (menu_permissions)`);
   }
 
   private sortMenusByParent(menus: Array<any>): Array<any> {
@@ -568,4 +683,3 @@ export class SeedMenus {
     this.logger.log('Menus cleared');
   }
 }
-

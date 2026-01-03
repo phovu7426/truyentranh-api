@@ -25,7 +25,6 @@ export class UserMenuController {
     const options = {
       include_inactive: includeInactive === 'true',
       flatten: flatten === 'true',
-      user_email: this.auth.email() || undefined,
     };
 
     return this.service.getUserMenus(userId, options);

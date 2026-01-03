@@ -14,6 +14,8 @@ export function applyCors(app: INestApplication, options: {
       'Authorization',
       'X-Requested-With',
       'X-Request-ID',
+      'X-Context-Id',
+      'X-Group-Id',
       'Accept',
       'Accept-Language',
       'Origin',

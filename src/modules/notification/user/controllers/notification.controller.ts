@@ -23,7 +23,7 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) { }
 
   @Get()
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getList(
     @Request() req: { user: AuthUser },
     @Query() query: GetNotificationsDto,
@@ -33,13 +33,13 @@ export class NotificationController {
   }
 
   @Get('unread')
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getUnread(@Request() req: { user: AuthUser }) {
     return this.notificationService.getList({ is_read: false });
   }
 
   @Get('unread/count')
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getUnreadCount(@Request() req: { user: AuthUser }) {
     const result = await this.notificationService.getList(
       { user_id: req.user.id, is_read: false, status: BasicStatus.Active },
@@ -49,7 +49,7 @@ export class NotificationController {
   }
 
   @Get(':id')
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getOne(
     @Param('id') id: string,
     @Request() req: { user: AuthUser },
@@ -59,7 +59,7 @@ export class NotificationController {
 
   @LogRequest()
   @Patch(':id/read')
-  @Permission('notification:update')
+  @Permission('notification.manage')
   async markAsRead(
     @Param('id') id: string,
     @Request() req: { user: AuthUser },
@@ -69,7 +69,7 @@ export class NotificationController {
 
   @LogRequest()
   @Patch('read-all')
-  @Permission('notification:update')
+  @Permission('notification.manage')
   async markAllAsRead(@Request() req: { user: AuthUser }) {
     return this.notificationService.markAllAsReadForUser(req.user.id);
   }

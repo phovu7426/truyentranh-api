@@ -1,17 +1,34 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial, In } from 'typeorm';
 import { Role } from '@/shared/entities/role.entity';
 import { Permission } from '@/shared/entities/permission.entity';
+import { Context } from '@/shared/entities/context.entity';
+import { RoleContext } from '@/shared/entities/role-context.entity';
 import { CrudService } from '@/common/base/services/crud.service';
 import { ResponseRef } from '@/common/base/utils/response-ref.helper';
 import { RbacCacheService } from '@/modules/rbac/services/rbac-cache.service';
+import { RequestContext } from '@/common/utils/request-context.util';
+import { Filters, Options } from '@/common/base/interfaces/list.interface';
+import { createPaginationMeta } from '@/common/base/utils/pagination.helper';
+import { getCurrentContext, getCurrentGroup } from '@/common/utils/group-ownership.util';
 
 @Injectable()
 export class RoleService extends CrudService<Role> {
   private get permRepo(): Repository<Permission> {
     return this.repository.manager.getRepository(Permission);
   }
+
+  private get contextRepo(): Repository<Context> {
+    return this.repository.manager.getRepository(Context);
+  }
+
+  private get roleContextRepo(): Repository<RoleContext> {
+    return this.repository.manager.getRepository(RoleContext);
+  }
+
+  // Biến tạm để lưu context_ids khi create/update
+  private tempContextIds: number[] | null = null;
 
   constructor(
     @InjectRepository(Role) protected readonly repository: Repository<Role>,
@@ -20,27 +37,85 @@ export class RoleService extends CrudService<Role> {
     super(repository);
   }
 
+  /**
+   * Override prepareOptions để load relations
+   */
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
+    const context = RequestContext.get<Context>('context');
+    const contextId = RequestContext.get<number>('contextId') || 1;
+
+    // Base relations
+    const baseRelations = ['parent', 'children', 'permissions', 'role_contexts'];
+
+    // System admin → load thêm role_contexts.context
+    if (!context || context.type === 'system') {
+      return {
+        ...base,
+        relations: [
+          ...baseRelations,
+          'role_contexts.context'
+        ].filter((v, i, a) => a.indexOf(v) === i) // Remove duplicates
+      } as any;
+    }
+
+    // Context admin → load role_contexts và context
     return {
       ...base,
-      relations: ['parent', 'children', 'permissions'],
+      relations: [
+        ...baseRelations,
+        'role_contexts',
+        'role_contexts.context'
+      ].filter((v, i, a) => a.indexOf(v) === i) // Remove duplicates
     } as any;
   }
 
   /**
-   * Override getOne để đảm bảo load relations trong admin
+   * Override prepareFilters để filter roles theo context
+   * Query role IDs có trong context và dùng In() operator để filter
    */
-  async getOne(
-    where: any,
-    options?: any,
-  ) {
-    // Đảm bảo load relations trong admin
-    const adminOptions = {
-      ...options,
-      relations: ['parent', 'children', 'permissions'],
+  protected override async prepareFilters(
+    filters?: Filters<Role>,
+    _options?: Options,
+  ): Promise<boolean | any> {
+    const prepared = { ...(filters || {}) };
+
+    // Lấy context từ RequestContext
+    const context = await getCurrentContext(this.contextRepo);
+    const contextId = RequestContext.get<number>('contextId') || 1;
+
+    // System admin (context.type = 'system') → không filter, lấy tất cả
+    if (!context || context.type === 'system') {
+      return prepared;
+    }
+
+    // Context admin → query role IDs có trong context
+    const roleContexts = await this.roleContextRepo.find({
+      where: { context_id: contextId } as any,
+      select: ['role_id'],
+    });
+
+    const roleIds = roleContexts.map(rc => rc.role_id);
+
+    // Nếu không có role nào trong context, trả về false để skip query (trả về empty result)
+    if (roleIds.length === 0) {
+      return false;
+    }
+
+    // Thêm filter id: In(roleIds) để chỉ lấy roles có trong context
+    return {
+      ...prepared,
+      id: In(roleIds),
     };
-    return super.getOne(where, adminOptions);
+  }
+
+
+  /**
+   * Override getOne - tương tự product service
+   * Controller đã truyền relations trong options rồi
+   */
+  override async getOne(where: any, options?: any): Promise<Role | null> {
+    return super.getOne(where, options);
   }
 
   /**
@@ -67,6 +142,37 @@ export class RoleService extends CrudService<Role> {
           const { id, code, name, status } = perm;
           return { id, code, name, status } as any;
         });
+      }
+      // Transform role_contexts để trả về contexts và context_ids cho FE
+      if (role.role_contexts) {
+        const contextId = RequestContext.get<number>('contextId') || 1;
+        const context = RequestContext.get<Context>('context');
+        
+        // Nếu không phải system admin, chỉ lấy role_contexts của context hiện tại
+        let filteredRoleContexts = role.role_contexts;
+        if (context && context.type !== 'system') {
+          filteredRoleContexts = role.role_contexts.filter(rc => rc.context_id === contextId);
+        }
+        
+        (role as any).context_ids = filteredRoleContexts.map(rc => Number(rc.context_id));
+        // Trả về thông tin context đầy đủ để hiển thị ở giao diện
+        (role as any).contexts = filteredRoleContexts
+          .filter(rc => rc.context) // Chỉ lấy những context đã load
+          .map(rc => {
+            const ctx = rc.context!;
+            return {
+              id: Number(ctx.id),
+              type: ctx.type,
+              name: ctx.name,
+              status: ctx.status,
+              ref_id: ctx.ref_id ? Number(ctx.ref_id) : null,
+            };
+          });
+        // Bỏ role_contexts khỏi response để tránh dư thừa (đã có contexts và context_ids)
+        delete (role as any).role_contexts;
+      } else {
+        (role as any).context_ids = [];
+        (role as any).contexts = [];
       }
       return role;
     });
@@ -95,6 +201,37 @@ export class RoleService extends CrudService<Role> {
         const { id, code, name, status } = perm;
         return { id, code, name, status } as any;
       });
+    }
+    // Transform role_contexts để trả về contexts và context_ids cho FE
+    if (entity.role_contexts) {
+      const contextId = RequestContext.get<number>('contextId') || 1;
+      const context = RequestContext.get<Context>('context');
+      
+      // Nếu không phải system admin, chỉ lấy role_contexts của context hiện tại
+      let filteredRoleContexts = entity.role_contexts;
+      if (context && context.type !== 'system') {
+        filteredRoleContexts = entity.role_contexts.filter(rc => rc.context_id === contextId);
+      }
+      
+      (entity as any).context_ids = filteredRoleContexts.map(rc => Number(rc.context_id));
+      // Trả về thông tin context đầy đủ để hiển thị ở giao diện
+      (entity as any).contexts = filteredRoleContexts
+        .filter(rc => rc.context) // Chỉ lấy những context đã load
+        .map(rc => {
+          const ctx = rc.context!;
+          return {
+            id: Number(ctx.id),
+            type: ctx.type,
+            name: ctx.name,
+            status: ctx.status,
+            ref_id: ctx.ref_id ? Number(ctx.ref_id) : null,
+          };
+        });
+      // Bỏ role_contexts khỏi response để tránh dư thừa (đã có contexts và context_ids)
+      delete (entity as any).role_contexts;
+    } else {
+      (entity as any).context_ids = [];
+      (entity as any).contexts = [];
     }
     return entity;
   }
@@ -127,7 +264,48 @@ export class RoleService extends CrudService<Role> {
       delete (createDto as any).parent_id;
     }
 
+    // Handle context_ids - lưu vào biến tạm để xử lý sau khi create
+    const contextIds = (createDto as any).context_ids;
+    if (contextIds && Array.isArray(contextIds) && contextIds.length > 0) {
+      // Validate contexts exist
+      const contexts = await this.contextRepo.findBy({ id: In(contextIds) });
+      if (contexts.length !== contextIds.length) {
+        if (response) {
+          response.message = 'Some context IDs are invalid';
+          response.code = 'INVALID_CONTEXT_IDS';
+        }
+        return false;
+      }
+      // Lưu vào biến tạm để xử lý trong afterCreate
+      this.tempContextIds = contextIds;
+    } else {
+      this.tempContextIds = [];
+    }
+    delete (createDto as any).context_ids;
+
     return true;
+  }
+
+  /**
+   * Override afterCreate để lưu context_ids vào role_contexts
+   */
+  protected async afterCreate(
+    entity: Role,
+    createDto: DeepPartial<Role>,
+  ): Promise<void> {
+    if (this.tempContextIds !== null) {
+      if (this.tempContextIds.length > 0) {
+        const roleContexts = this.tempContextIds.map(contextId =>
+          this.roleContextRepo.create({
+            role_id: entity.id,
+            context_id: contextId,
+          }),
+        );
+        await this.roleContextRepo.save(roleContexts);
+      }
+      // Reset biến tạm
+      this.tempContextIds = null;
+    }
   }
 
   protected async beforeUpdate(
@@ -162,7 +340,55 @@ export class RoleService extends CrudService<Role> {
       delete (updateDto as any).parent_id;
     }
 
+    // Handle context_ids - lưu vào biến tạm để xử lý sau khi update
+    const contextIds = (updateDto as any).context_ids;
+    if (contextIds !== undefined) {
+      if (Array.isArray(contextIds) && contextIds.length > 0) {
+        // Validate contexts exist
+        const contexts = await this.contextRepo.findBy({ id: In(contextIds) });
+        if (contexts.length !== contextIds.length) {
+          if (response) {
+            response.message = 'Some context IDs are invalid';
+            response.code = 'INVALID_CONTEXT_IDS';
+          }
+          return false;
+        }
+        // Lưu vào biến tạm để xử lý trong afterUpdate
+        this.tempContextIds = contextIds;
+      } else {
+        // context_ids = [] hoặc null → xóa hết contexts
+        this.tempContextIds = [];
+      }
+    }
+    delete (updateDto as any).context_ids;
+
     return true;
+  }
+
+  /**
+   * Override afterUpdate để sync context_ids vào role_contexts
+   */
+  protected async afterUpdate(
+    entity: Role,
+    updateDto: DeepPartial<Role>,
+  ): Promise<void> {
+    if (this.tempContextIds !== null) {
+      // Xóa tất cả contexts cũ
+      await this.roleContextRepo.delete({ role_id: entity.id });
+
+      // Thêm contexts mới
+      if (this.tempContextIds.length > 0) {
+        const roleContexts = this.tempContextIds.map(contextId =>
+          this.roleContextRepo.create({
+            role_id: entity.id,
+            context_id: contextId,
+          }),
+        );
+        await this.roleContextRepo.save(roleContexts);
+      }
+      // Reset biến tạm
+      this.tempContextIds = null;
+    }
   }
 
   protected async beforeDelete(

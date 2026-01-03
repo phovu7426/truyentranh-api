@@ -11,7 +11,7 @@ export class RoleController {
     private readonly auth: AuthService,
   ) { }
 
-  @Permission('role.read')
+  @Permission('role.manage')
   @Get()
   async getList(@Query() query: any) {
     // Tách pagination options ra khỏi filters
@@ -19,7 +19,7 @@ export class RoleController {
     return this.service.getList(filters, { page, limit, sort });
   }
 
-  @Permission('role.read')
+  @Permission('role.manage')
   @Get('simple')
   async getSimpleList(@Query() query: any) {
     // Tách pagination options ra khỏi filters
@@ -27,14 +27,22 @@ export class RoleController {
     return this.service.getSimpleList(filters, { page, limit, sort });
   }
 
-  @Permission('role.read')
+  @Permission('role.manage')
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.getOne({ id } as any);
+    return this.service.getOne({ id } as any, {
+      relations: [
+        'parent',
+        'children',
+        'permissions',
+        'role_contexts',
+        'role_contexts.context',
+      ]
+    });
   }
 
   @LogRequest()
-  @Permission('role.create')
+  @Permission('role.manage')
   @Post()
   async create(@Body() dto: any) {
     // Sử dụng AuthService thay vì @Req() decorator
@@ -46,7 +54,7 @@ export class RoleController {
   }
 
   @LogRequest()
-  @Permission('role.update')
+  @Permission('role.manage')
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -61,14 +69,14 @@ export class RoleController {
   }
 
   @LogRequest()
-  @Permission('role.delete')
+  @Permission('role.manage')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.service.delete(id);
   }
 
   @LogRequest()
-  @Permission('role.update')
+  @Permission('role.manage')
   @Post(':id/permissions')
   async assignPermissions(
     @Param('id', ParseIntPipe) roleId: number,

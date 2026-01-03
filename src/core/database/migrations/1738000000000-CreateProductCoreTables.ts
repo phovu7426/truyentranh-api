@@ -60,6 +60,7 @@ export class CreateProductCoreTables1738000000000 implements MigrationInterface 
         og_title VARCHAR(255) NULL,
         og_description TEXT NULL,
         og_image VARCHAR(500) NULL,
+        group_id BIGINT UNSIGNED NULL,
         created_user_id BIGINT UNSIGNED NULL,
         updated_user_id BIGINT UNSIGNED NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,7 +74,8 @@ export class CreateProductCoreTables1738000000000 implements MigrationInterface 
         INDEX idx_products_is_digital (is_digital),
         INDEX idx_products_status_featured (status, is_featured),
         INDEX idx_products_status_created (status, created_at),
-        INDEX idx_products_deleted_at (deleted_at)
+        INDEX idx_products_deleted_at (deleted_at),
+        INDEX idx_products_group_id (group_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 

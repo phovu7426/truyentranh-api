@@ -29,27 +29,27 @@ export class AdminWarehouseController {
   constructor(private readonly warehouseService: WarehouseService) {}
 
   @Get()
-  @Permission('warehouse:read')
+  @Permission('warehouse.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.warehouseService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('warehouse:read')
+  @Permission('warehouse.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.warehouseService.getSimpleList(filters, options);
   }
 
   @Get(':id')
-  @Permission('warehouse:read')
+  @Permission('warehouse.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.warehouseService.getOne({ id } as any);
   }
 
   @Get(':id/inventory')
-  @Permission('warehouse:read')
+  @Permission('warehouse_inventory.manage')
   async getInventory(
     @Param('id', ParseIntPipe) id: number,
     @Query('low_stock') lowStock?: string,
@@ -59,14 +59,14 @@ export class AdminWarehouseController {
 
   @LogRequest()
   @Post()
-  @Permission('warehouse:create')
+  @Permission('warehouse.manage')
   async create(@Body(ValidationPipe) dto: CreateWarehouseDto) {
     return this.warehouseService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('warehouse:update')
+  @Permission('warehouse.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateWarehouseDto,
@@ -76,14 +76,14 @@ export class AdminWarehouseController {
 
   @LogRequest()
   @Delete(':id')
-  @Permission('warehouse:delete')
+  @Permission('warehouse.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.warehouseService.softDelete(id);
   }
 
   @LogRequest()
   @Put('inventory/update')
-  @Permission('warehouse:update')
+  @Permission('warehouse_inventory.manage')
   async updateInventory(@Body(ValidationPipe) dto: UpdateInventoryDto) {
     return this.warehouseService.updateInventoryStock(
       dto.warehouse_id,
@@ -95,7 +95,7 @@ export class AdminWarehouseController {
 
   @LogRequest()
   @Post('transfers')
-  @Permission('warehouse:transfer')
+  @Permission('warehouse_transfer.manage')
   async createTransfer(
     @Request() req: any,
     @Body(ValidationPipe) dto: CreateStockTransferDto,
@@ -111,7 +111,7 @@ export class AdminWarehouseController {
   }
 
   @Get('transfers/list')
-  @Permission('warehouse:read')
+  @Permission('warehouse_transfer.manage')
   async getTransfers(
     @Query('status') status?: string,
     @Query('warehouse_id') warehouseId?: string,
@@ -124,7 +124,7 @@ export class AdminWarehouseController {
 
   @LogRequest()
   @Put('transfers/:id/approve')
-  @Permission('warehouse:transfer')
+  @Permission('warehouse_transfer.manage')
   async approveTransfer(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,
@@ -134,14 +134,14 @@ export class AdminWarehouseController {
 
   @LogRequest()
   @Put('transfers/:id/complete')
-  @Permission('warehouse:transfer')
+  @Permission('warehouse_transfer.manage')
   async completeTransfer(@Param('id', ParseIntPipe) id: number) {
     return this.warehouseService.completeStockTransfer(id);
   }
 
   @LogRequest()
   @Put('transfers/:id/cancel')
-  @Permission('warehouse:transfer')
+  @Permission('warehouse_transfer.manage')
   async cancelTransfer(@Param('id', ParseIntPipe) id: number) {
     return this.warehouseService.cancelStockTransfer(id);
   }

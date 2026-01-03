@@ -15,41 +15,41 @@ export class AdminMenuController {
     private readonly auth: AuthService,
   ) {}
 
-  @Permission('menu.read')
+  @Permission('menu.manage')
   @Get()
   async getList(@Query(ValidationPipe) query: QueryMenuDto) {
     const { filters, options } = prepareQuery(query);
     return this.service.getList(filters, options);
   }
 
-  @Permission('menu.read')
+  @Permission('menu.manage')
   @Get('simple')
   async getSimpleList(@Query(ValidationPipe) query: QueryMenuDto) {
     const { filters, options } = prepareQuery(query);
     return this.service.getSimpleList(filters, options);
   }
 
-  @Permission('menu.read')
+  @Permission('menu.manage')
   @Get('tree')
   async getTree() {
     return this.service.getTree();
   }
 
-  @Permission('menu.read')
+  @Permission('menu.manage')
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.getOne({ id } as any);
   }
 
   @LogRequest()
-  @Permission('menu.create')
+  @Permission('menu.manage')
   @Post()
   async create(@Body() dto: CreateMenuDto) {
     return this.service.create(dto, this.auth.id() || undefined);
   }
 
   @LogRequest()
-  @Permission('menu.update')
+  @Permission('menu.manage')
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -59,7 +59,7 @@ export class AdminMenuController {
   }
 
   @LogRequest()
-  @Permission('menu.delete')
+  @Permission('menu.manage')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.service.delete(id);

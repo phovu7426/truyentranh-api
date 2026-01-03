@@ -5,6 +5,7 @@ import { WarehouseInventory } from '@/shared/entities/warehouse-inventory.entity
 import { StockTransfer, StockTransferStatus } from '@/shared/entities/stock-transfer.entity';
 import { ProductVariant } from '@/shared/entities/product-variant.entity';
 import { User } from '@/shared/entities/user.entity';
+import { Group } from '@/shared/entities/group.entity';
 
 type WarehouseSeedData = Omit<Warehouse, 'id' | 'created_at' | 'updated_at'>;
 
@@ -27,12 +28,15 @@ export class SeedWarehouses {
       const transferRepo = queryRunner.manager.getRepository(StockTransfer);
       const variantRepo = queryRunner.manager.getRepository(ProductVariant);
       const userRepo = queryRunner.manager.getRepository(User);
+      const groupRepo = queryRunner.manager.getRepository(Group);
 
       // Seed warehouses
       let warehouses = await warehouseRepo.find();
       if (warehouses.length === 0) {
         const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
         const defaultUserId = adminUser?.id ?? 1;
+        const mainShop = await groupRepo.findOne({ where: { code: 'shop-001' } as any });
+        const mainShopId = mainShop?.id ?? null;
 
         const warehouseData: WarehouseSeedData[] = [
           {
@@ -47,6 +51,7 @@ export class SeedWarehouses {
             manager_name: 'Nguyễn Văn A',
             priority: 100,
             is_active: true,
+            group_id: mainShopId,
             created_user_id: defaultUserId,
             updated_user_id: defaultUserId,
           },
@@ -62,6 +67,7 @@ export class SeedWarehouses {
             manager_name: 'Trần Thị B',
             priority: 80,
             is_active: true,
+            group_id: mainShopId,
             created_user_id: defaultUserId,
             updated_user_id: defaultUserId,
           },
@@ -77,6 +83,7 @@ export class SeedWarehouses {
             manager_name: 'Lê Văn C',
             priority: 60,
             is_active: true,
+            group_id: mainShopId,
             created_user_id: defaultUserId,
             updated_user_id: defaultUserId,
           },

@@ -26,41 +26,41 @@ export class AdminProductAttributeValueController {
   constructor(private readonly productAttributeValueService: AdminProductAttributeValueService) { }
 
   @Get()
-  @Permission('product-attribute-value:read')
+  @Permission('product_attribute_value.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productAttributeValueService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('product-attribute-value:read')
+  @Permission('product_attribute_value.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productAttributeValueService.getSimpleList(filters, options);
   }
 
   @Get('attribute/:attributeId')
-  @Permission('product-attribute-value:read')
+  @Permission('product_attribute_value.manage')
   async getByAttributeId(@Param('attributeId', ParseIntPipe) attributeId: number) {
     return this.productAttributeValueService.findByAttributeId(attributeId);
   }
 
   @Get(':id')
-  @Permission('product-attribute-value:read')
+  @Permission('product_attribute_value.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeValueService.getOne({ id } as any);
   }
 
   @LogRequest()
   @Post()
-  @Permission('product-attribute-value:create')
+  @Permission('product_attribute_value.manage')
   async create(@Body(ValidationPipe) dto: CreateProductAttributeValueDto) {
     return this.productAttributeValueService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('product-attribute-value:update')
+  @Permission('product_attribute_value.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateProductAttributeValueDto,
@@ -70,14 +70,14 @@ export class AdminProductAttributeValueController {
 
   @LogRequest()
   @Put(':id/restore')
-  @Permission('product-attribute-value:update')
+  @Permission('product_attribute_value.manage')
   async restore(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeValueService.restore(id);
   }
 
   @LogRequest()
   @Delete(':id')
-  @Permission('product-attribute-value:delete')
+  @Permission('product_attribute_value.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.productAttributeValueService.delete(id);
   }

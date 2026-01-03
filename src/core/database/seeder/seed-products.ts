@@ -8,6 +8,7 @@ import { ProductAttribute } from '@/shared/entities/product-attribute.entity';
 import { ProductAttributeValue } from '@/shared/entities/product-attribute-value.entity';
 import { ProductVariantAttribute } from '@/shared/entities/product-variant-attribute.entity';
 import { User } from '@/shared/entities/user.entity';
+import { Group } from '@/shared/entities/group.entity';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
 import { ProductStatus } from '@/shared/enums/product-status.enum';
 
@@ -32,6 +33,7 @@ export class SeedProducts {
       const valueRepo = queryRunner.manager.getRepository(ProductAttributeValue);
       const pvaRepo = queryRunner.manager.getRepository(ProductVariantAttribute);
       const userRepo = queryRunner.manager.getRepository(User);
+      const groupRepo = queryRunner.manager.getRepository(Group);
 
       const existing = await productRepo.count();
       if (existing > 0) {
@@ -43,6 +45,10 @@ export class SeedProducts {
       // Get admin user for audit fields
       const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
       const defaultUserId = adminUser?.id ?? 1;
+
+      // Gắn toàn bộ product demo vào shop chính (nếu tồn tại)
+      const mainShop = await groupRepo.findOne({ where: { code: 'shop-001' } as any });
+      const mainShopId = mainShop?.id ?? null;
 
       // prerequisites: categories, attributes, values
       const categories = await categoryRepo.find();
@@ -136,7 +142,7 @@ export class SeedProducts {
           continue;
         }
 
-        const product = await productRepo.save({
+          const product = await productRepo.save({
           name: productData.name,
           slug: productData.slug,
           sku: productData.sku,
@@ -147,6 +153,7 @@ export class SeedProducts {
           is_featured: productData.featured,
           is_variable: true,
           is_digital: false,
+          group_id: mainShopId,
           created_user_id: defaultUserId,
           updated_user_id: defaultUserId,
         });

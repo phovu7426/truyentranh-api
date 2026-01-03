@@ -244,6 +244,12 @@ export class CreateP1FeaturesTables1740000000000 implements MigrationInterface {
             isUnique: true,
           },
           {
+            name: 'group_id',
+            type: 'bigint',
+            unsigned: true,
+            isNullable: true,
+          },
+          {
             name: 'name',
             type: 'varchar',
             length: '255',
@@ -356,6 +362,14 @@ export class CreateP1FeaturesTables1740000000000 implements MigrationInterface {
       new TableIndex({
         name: 'idx_warehouses_deleted_at',
         columnNames: ['deleted_at'],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      'warehouses',
+      new TableIndex({
+        name: 'idx_warehouses_group_id',
+        columnNames: ['group_id'],
       }),
     );
 

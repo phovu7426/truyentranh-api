@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { PERMS_REQUIRED_KEY, PUBLIC_PERMISSION } from '@/common/decorators/rbac.decorators';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 import { Auth } from '@/common/utils/auth.util';
+import { RequestContext } from '@/common/utils/request-context.util';
 import { ResponseUtil } from '@/common/utils/response.util';
 
 @Injectable()
@@ -13,9 +14,6 @@ export class RbacGuard implements CanActivate {
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    if (process.env.NODE_ENV === 'development') {
-      return true;
-    }
     const requiredPerms = this.reflector.getAllAndOverride<string[]>(PERMS_REQUIRED_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -38,9 +36,12 @@ export class RbacGuard implements CanActivate {
       throw new HttpException(response, response.httpStatus || HttpStatus.UNAUTHORIZED);
     }
 
-    // Kiểm tra permissions
-    // Lưu ý: userHasPermissions đã tự động check roles (chỉ lấy permissions từ active roles)
-    const ok = await this.rbac.userHasPermissions(userId, requiredPerms);
+    // ✅ MỚI: Lấy groupId thay vì contextId
+    const groupId = RequestContext.get<number | null>('groupId') ?? null; // Có thể null
+
+    // ✅ MỚI: Check permissions trong group
+    const ok = await this.rbac.userHasPermissionsInGroup(userId, groupId, requiredPerms);
+    
     if (!ok) {
       const response = ResponseUtil.forbidden(
         `Access denied. Required permissions: ${requiredPerms.join(', ')}`

@@ -5,6 +5,8 @@ import { Warehouse } from '@/shared/entities/warehouse.entity';
 import { WarehouseInventory } from '@/shared/entities/warehouse-inventory.entity';
 import { StockTransfer, StockTransferStatus } from '@/shared/entities/stock-transfer.entity';
 import { CrudService } from '@/common/base/services/crud.service';
+import { RequestContext } from '@/common/utils/request-context.util';
+import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
 
 @Injectable()
 export class WarehouseService extends CrudService<Warehouse> {
@@ -17,6 +19,25 @@ export class WarehouseService extends CrudService<Warehouse> {
     private readonly transferRepository: Repository<StockTransfer>,
   ) {
     super(warehouseRepository);
+  }
+
+  /**
+   * Mặc định filter warehouse theo group/context nếu có
+   */
+  protected override prepareFilters(filters?: any, _options?: any): boolean | any {
+    const prepared = { ...(filters || {}) };
+
+    if (prepared.group_id === undefined) {
+      const contextId = RequestContext.get<number>('contextId');
+      const groupId = RequestContext.get<number | null>('groupId');
+
+      // Nếu context không phải system (contextId !== 1) và có ref_id, dùng ref_id làm group_id
+      if (contextId && contextId !== 1 && groupId) {
+        prepared.group_id = groupId;
+      }
+    }
+
+    return prepared;
   }
 
   /**
@@ -383,5 +404,39 @@ export class WarehouseService extends CrudService<Warehouse> {
 
   private toRad(degrees: number): number {
     return (degrees * Math.PI) / 180;
+  }
+
+  /**
+   * Override getOne để verify ownership
+   */
+  override async getOne(where: any, options?: any): Promise<Warehouse | null> {
+    const warehouse = await super.getOne(where, options);
+    if (warehouse) {
+      verifyGroupOwnership(warehouse);
+    }
+    return warehouse;
+  }
+
+  /**
+   * Override beforeUpdate để verify ownership
+   */
+  protected override async beforeUpdate(
+    entity: Warehouse,
+    updateDto: any,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
+  }
+
+  /**
+   * Override beforeDelete để verify ownership
+   */
+  protected override async beforeDelete(
+    entity: Warehouse,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
   }
 }

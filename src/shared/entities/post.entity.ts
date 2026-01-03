@@ -26,6 +26,7 @@ import { BaseEntity } from './base.entity';
 @Index('idx_status_published_at', ['status', 'published_at'])
 @Index('idx_is_featured_status', ['is_featured', 'status'])
 @Index('idx_primary_category_status', ['primary_postcategory_id', 'status'])
+@Index('idx_posts_group_id', ['group_id'])
 @Index('idx_deleted_at', ['deleted_at']) // Index cho soft delete
 export class Post extends BaseEntity {
 
@@ -106,6 +107,14 @@ export class Post extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   og_image?: string | null;
+
+  /**
+   * Group/Context owner của post (shop, org, project...)
+   * - Mặc định NULL → thuộc system/global content
+   * - Khi chạy đa-tenant: luôn set theo group hiện tại
+   */
+  @Column({ type: 'bigint', unsigned: true, nullable: true })
+  group_id?: number | null;
 
   @ManyToMany('PostCategory', 'posts')
   @JoinTable({

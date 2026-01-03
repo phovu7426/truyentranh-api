@@ -398,6 +398,21 @@ if (!permissions) {
 
 ---
 
+## 🚀 Global Context System (Upcoming)
+
+Hệ thống hiện tại sẽ được nâng cấp lên **Global Context System** - một thiết kế thống nhất loại bỏ hoàn toàn khái niệm "admin đặc biệt". Mọi quyền đều thông qua context, không có ngoại lệ.
+
+**Tính năng chính:**
+- ✅ System Admin = Admin của Global Context (context type = 'system')
+- ✅ Mọi user đều gắn role qua context
+- ✅ Permission phân tầng theo scope (system | context)
+- ✅ Middleware đơn giản, không có nhánh if admin
+- ✅ Menu thống nhất 100%
+
+📖 [Chi tiết Kế Hoạch Nâng Cấp](../../core/global-context-upgrade-plan.md)
+
+---
+
 **Xem thêm:**
 - [Main API Documentation](../README.md)
 - [User Management Module](../user-management/README.md)

@@ -30,7 +30,9 @@ export abstract class ListService<T extends ObjectLiteral> {
     let data: T[] = [];
     let meta: PaginatedListResult<T>["meta"] = createPaginationMeta(page, limit, 0);
 
-    const prepared = this.prepareFilters(filters, normalizedOptions);
+    // Hỗ trợ async prepareFilters (nếu prepareFilters trả về Promise thì await)
+    const preparedResult = this.prepareFilters(filters, normalizedOptions);
+    const prepared = preparedResult instanceof Promise ? await preparedResult : preparedResult;
     if (prepared) {
       const whereFilters = (prepared === true ? filters : prepared) as FindOptionsWhere<T>;
 
@@ -75,7 +77,9 @@ export abstract class ListService<T extends ObjectLiteral> {
     let data: T[] = [];
     let meta: PaginatedListResult<T>["meta"] = createPaginationMeta(page, limit, 0);
 
-    const prepared = this.prepareFilters(filters, normalizedOptions);
+    // Hỗ trợ async prepareFilters (nếu prepareFilters trả về Promise thì await)
+    const preparedResult = this.prepareFilters(filters, normalizedOptions);
+    const prepared = preparedResult instanceof Promise ? await preparedResult : preparedResult;
     if (prepared) {
       const whereFilters = (prepared === true ? filters : prepared) as FindOptionsWhere<T>;
 

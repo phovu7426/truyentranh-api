@@ -26,134 +26,71 @@ export class SeedPermissions {
     const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
     const defaultUserId = adminUser?.id ?? 1;
 
-    // Seed permissions with hierarchy - theo module/chức năng
+    // Seed permissions - Chỉ có quyền manage level, không chia nhỏ thành read, create, update, delete
+    // 1 menu = 1 quyền manage cho tất cả
     const permissions = [
       // ========== DASHBOARD MODULE ==========
-      { code: 'dashboard.read', name: 'Xem Dashboard', status: 'active', parent_code: null },
+      { code: 'dashboard.manage', name: 'Quản lý Dashboard', status: 'active', parent_code: null },
       
       // ========== POST MODULE ==========
       { code: 'post.manage', name: 'Quản lý Bài viết', status: 'active', parent_code: null },
-      { code: 'post.create', name: 'Tạo Bài viết', status: 'active', parent_code: 'post.manage' },
-      { code: 'post.read', name: 'Xem Bài viết', status: 'active', parent_code: 'post.manage' },
-      { code: 'post.update', name: 'Sửa Bài viết', status: 'active', parent_code: 'post.manage' },
-      { code: 'post.delete', name: 'Xóa Bài viết', status: 'active', parent_code: 'post.manage' },
-      { code: 'post.publish', name: 'Xuất bản Bài viết', status: 'active', parent_code: 'post.manage' },
-      
-      // ========== POST CATEGORY MODULE ==========
-      { code: 'postcategory.manage', name: 'Quản lý Danh mục', status: 'active', parent_code: null },
-      { code: 'postcategory.create', name: 'Tạo Danh mục', status: 'active', parent_code: 'postcategory.manage' },
-      { code: 'postcategory.read', name: 'Xem Danh mục', status: 'active', parent_code: 'postcategory.manage' },
-      { code: 'postcategory.update', name: 'Sửa Danh mục', status: 'active', parent_code: 'postcategory.manage' },
-      { code: 'postcategory.delete', name: 'Xóa Danh mục', status: 'active', parent_code: 'postcategory.manage' },
-      
-      // ========== POST TAG MODULE ==========
-      { code: 'posttag.manage', name: 'Quản lý Thẻ', status: 'active', parent_code: null },
-      { code: 'posttag.create', name: 'Tạo Thẻ', status: 'active', parent_code: 'posttag.manage' },
-      { code: 'posttag.read', name: 'Xem Thẻ', status: 'active', parent_code: 'posttag.manage' },
-      { code: 'posttag.update', name: 'Sửa Thẻ', status: 'active', parent_code: 'posttag.manage' },
-      { code: 'posttag.delete', name: 'Xóa Thẻ', status: 'active', parent_code: 'posttag.manage' },
+      { code: 'post_category.manage', name: 'Quản lý Danh mục', status: 'active', parent_code: null },
+      { code: 'post_tag.manage', name: 'Quản lý Thẻ', status: 'active', parent_code: null },
       
       // ========== USER MODULE ==========
       { code: 'user.manage', name: 'Quản lý Người dùng', status: 'active', parent_code: null },
-      { code: 'user.create', name: 'Tạo Người dùng', status: 'active', parent_code: 'user.manage' },
-      { code: 'user.read', name: 'Xem Người dùng', status: 'active', parent_code: 'user.manage' },
-      { code: 'user.update', name: 'Sửa Người dùng', status: 'active', parent_code: 'user.manage' },
-      { code: 'user.delete', name: 'Xóa Người dùng', status: 'active', parent_code: 'user.manage' },
-      { code: 'user.activate', name: 'Kích hoạt Người dùng', status: 'active', parent_code: 'user.manage' },
-      { code: 'user.deactivate', name: 'Vô hiệu hóa Người dùng', status: 'active', parent_code: 'user.manage' },
       
       // ========== ROLE MODULE ==========
       { code: 'role.manage', name: 'Quản lý Vai trò', status: 'active', parent_code: null },
-      { code: 'role.create', name: 'Tạo Vai trò', status: 'active', parent_code: 'role.manage' },
-      { code: 'role.read', name: 'Xem Vai trò', status: 'active', parent_code: 'role.manage' },
-      { code: 'role.update', name: 'Sửa Vai trò', status: 'active', parent_code: 'role.manage' },
-      { code: 'role.delete', name: 'Xóa Vai trò', status: 'active', parent_code: 'role.manage' },
-      { code: 'role.assign', name: 'Gán Vai trò', status: 'active', parent_code: 'role.manage' },
       
       // ========== PERMISSION MODULE ==========
       { code: 'permission.manage', name: 'Quản lý Quyền', status: 'active', parent_code: null },
-      { code: 'permission.read', name: 'Xem Quyền', status: 'active', parent_code: 'permission.manage' },
-      { code: 'permission.assign', name: 'Gán Quyền', status: 'active', parent_code: 'permission.manage' },
       
       // ========== SYSTEM MODULE ==========
       { code: 'system.manage', name: 'Quản lý Hệ thống', status: 'active', parent_code: null },
-      { code: 'system.settings', name: 'Cài đặt Hệ thống', status: 'active', parent_code: 'system.manage' },
-      { code: 'system.logs', name: 'Xem Nhật ký', status: 'active', parent_code: 'system.manage' },
-      { code: 'system.backup', name: 'Sao lưu Hệ thống', status: 'active', parent_code: 'system.manage' },
       
       // ========== MENU MODULE ==========
       { code: 'menu.manage', name: 'Quản lý Menu', status: 'active', parent_code: null },
-      { code: 'menu.create', name: 'Tạo Menu', status: 'active', parent_code: 'menu.manage' },
-      { code: 'menu.read', name: 'Xem Menu', status: 'active', parent_code: 'menu.manage' },
-      { code: 'menu.update', name: 'Sửa Menu', status: 'active', parent_code: 'menu.manage' },
-      { code: 'menu.delete', name: 'Xóa Menu', status: 'active', parent_code: 'menu.manage' },
       
-      // ========== PRODUCT MODULE ==========
-      { code: 'product.manage', name: 'Quản lý Sản phẩm', status: 'active', parent_code: null },
-      { code: 'product.create', name: 'Tạo Sản phẩm', status: 'active', parent_code: 'product.manage' },
-      { code: 'product.read', name: 'Xem Sản phẩm', status: 'active', parent_code: 'product.manage' },
-      { code: 'product.update', name: 'Sửa Sản phẩm', status: 'active', parent_code: 'product.manage' },
-      { code: 'product.delete', name: 'Xóa Sản phẩm', status: 'active', parent_code: 'product.manage' },
-      { code: 'product.category.manage', name: 'Quản lý Danh mục sản phẩm', status: 'active', parent_code: 'product.manage' },
-      { code: 'product.attribute.manage', name: 'Quản lý Thuộc tính sản phẩm', status: 'active', parent_code: 'product.manage' },
+      // ========== CONFIG MODULE ==========
+      { code: 'config.manage', name: 'Quản lý Cấu hình', status: 'active', parent_code: null },
       
-      // ========== ORDER MODULE ==========
-      { code: 'order.manage', name: 'Quản lý Đơn hàng', status: 'active', parent_code: null },
-      { code: 'order.create', name: 'Tạo Đơn hàng', status: 'active', parent_code: 'order.manage' },
-      { code: 'order.read', name: 'Xem Đơn hàng', status: 'active', parent_code: 'order.manage' },
-      { code: 'order.update', name: 'Sửa Đơn hàng', status: 'active', parent_code: 'order.manage' },
-      { code: 'order.delete', name: 'Xóa Đơn hàng', status: 'active', parent_code: 'order.manage' },
-      { code: 'order.cancel', name: 'Hủy Đơn hàng', status: 'active', parent_code: 'order.manage' },
-      { code: 'order.process', name: 'Xử lý Đơn hàng', status: 'active', parent_code: 'order.manage' },
+      // ========== PAYMENT MODULE ==========
+      { code: 'payment_method.manage', name: 'Quản lý Phương thức thanh toán', status: 'active', parent_code: null },
+      
+      // ========== SHIPPING MODULE ==========
+      { code: 'shipping_method.manage', name: 'Quản lý Phương thức vận chuyển', status: 'active', parent_code: null },
       
       // ========== BANNER MODULE ==========
       { code: 'banner.manage', name: 'Quản lý Banner', status: 'active', parent_code: null },
-      { code: 'banner.create', name: 'Tạo Banner', status: 'active', parent_code: 'banner.manage' },
-      { code: 'banner.read', name: 'Xem Banner', status: 'active', parent_code: 'banner.manage' },
-      { code: 'banner.update', name: 'Sửa Banner', status: 'active', parent_code: 'banner.manage' },
-      { code: 'banner.delete', name: 'Xóa Banner', status: 'active', parent_code: 'banner.manage' },
-      { code: 'banner.location.manage', name: 'Quản lý Vị trí Banner', status: 'active', parent_code: 'banner.manage' },
+      { code: 'banner_location.manage', name: 'Quản lý Vị trí Banner', status: 'active', parent_code: null },
+      
+      // ========== PRODUCT MODULE ==========
+      { code: 'product.manage', name: 'Quản lý Sản phẩm', status: 'active', parent_code: null },
+      { code: 'product_category.manage', name: 'Quản lý Danh mục sản phẩm', status: 'active', parent_code: null },
+      { code: 'product_attribute.manage', name: 'Quản lý Thuộc tính sản phẩm', status: 'active', parent_code: null },
+      { code: 'product_attribute_value.manage', name: 'Quản lý Giá trị thuộc tính', status: 'active', parent_code: null },
+      { code: 'product_variant.manage', name: 'Quản lý Biến thể sản phẩm', status: 'active', parent_code: null },
+      
+      // ========== ORDER MODULE ==========
+      { code: 'order.manage', name: 'Quản lý Đơn hàng', status: 'active', parent_code: null },
       
       // ========== WAREHOUSE MODULE ==========
       { code: 'warehouse.manage', name: 'Quản lý Kho hàng', status: 'active', parent_code: null },
-      { code: 'warehouse.create', name: 'Tạo Kho hàng', status: 'active', parent_code: 'warehouse.manage' },
-      { code: 'warehouse.read', name: 'Xem Kho hàng', status: 'active', parent_code: 'warehouse.manage' },
-      { code: 'warehouse.update', name: 'Sửa Kho hàng', status: 'active', parent_code: 'warehouse.manage' },
-      { code: 'warehouse.delete', name: 'Xóa Kho hàng', status: 'active', parent_code: 'warehouse.manage' },
-      { code: 'warehouse.inventory.manage', name: 'Quản lý Tồn kho', status: 'active', parent_code: 'warehouse.manage' },
-      { code: 'warehouse.transfer.manage', name: 'Quản lý Chuyển kho', status: 'active', parent_code: 'warehouse.manage' },
+      { code: 'warehouse_inventory.manage', name: 'Quản lý Tồn kho', status: 'active', parent_code: null },
+      { code: 'warehouse_transfer.manage', name: 'Quản lý Chuyển kho', status: 'active', parent_code: null },
       
-      // ========== PAYMENT METHOD MODULE ==========
-      { code: 'payment_method.manage', name: 'Quản lý Phương thức thanh toán', status: 'active', parent_code: null },
-      { code: 'payment_method.create', name: 'Tạo Phương thức thanh toán', status: 'active', parent_code: 'payment_method.manage' },
-      { code: 'payment_method.read', name: 'Xem Phương thức thanh toán', status: 'active', parent_code: 'payment_method.manage' },
-      { code: 'payment_method.update', name: 'Sửa Phương thức thanh toán', status: 'active', parent_code: 'payment_method.manage' },
-      { code: 'payment_method.delete', name: 'Xóa Phương thức thanh toán', status: 'active', parent_code: 'payment_method.manage' },
-      
-      // ========== SHIPPING METHOD MODULE ==========
-      { code: 'shipping_method.manage', name: 'Quản lý Phương thức vận chuyển', status: 'active', parent_code: null },
-      { code: 'shipping_method.create', name: 'Tạo Phương thức vận chuyển', status: 'active', parent_code: 'shipping_method.manage' },
-      { code: 'shipping_method.read', name: 'Xem Phương thức vận chuyển', status: 'active', parent_code: 'shipping_method.manage' },
-      { code: 'shipping_method.update', name: 'Sửa Phương thức vận chuyển', status: 'active', parent_code: 'shipping_method.manage' },
-      { code: 'shipping_method.delete', name: 'Xóa Phương thức vận chuyển', status: 'active', parent_code: 'shipping_method.manage' },
+      // ========== NOTIFICATION MODULE ==========
+      { code: 'notification.manage', name: 'Quản lý Thông báo', status: 'active', parent_code: null },
       
       // ========== COUPON MODULE ==========
       { code: 'coupon.manage', name: 'Quản lý Mã giảm giá', status: 'active', parent_code: null },
-      { code: 'coupon.create', name: 'Tạo Mã giảm giá', status: 'active', parent_code: 'coupon.manage' },
-      { code: 'coupon.read', name: 'Xem Mã giảm giá', status: 'active', parent_code: 'coupon.manage' },
-      { code: 'coupon.update', name: 'Sửa Mã giảm giá', status: 'active', parent_code: 'coupon.manage' },
-      { code: 'coupon.delete', name: 'Xóa Mã giảm giá', status: 'active', parent_code: 'coupon.manage' },
       
       // ========== CONTACT MODULE ==========
       { code: 'contact.manage', name: 'Quản lý Liên hệ', status: 'active', parent_code: null },
-      { code: 'contact.read', name: 'Xem Liên hệ', status: 'active', parent_code: 'contact.manage' },
-      { code: 'contact.update', name: 'Sửa Liên hệ', status: 'active', parent_code: 'contact.manage' },
-      { code: 'contact.delete', name: 'Xóa Liên hệ', status: 'active', parent_code: 'contact.manage' },
       
-      // ========== SYSTEM CONFIG MODULE ==========
-      { code: 'system_config.manage', name: 'Quản lý Cấu hình hệ thống', status: 'active', parent_code: null },
-      { code: 'system_config.read', name: 'Xem Cấu hình', status: 'active', parent_code: 'system_config.manage' },
-      { code: 'system_config.update', name: 'Sửa Cấu hình', status: 'active', parent_code: 'system_config.manage' },
+      // ========== GROUP MODULE ==========
+      { code: 'group.manage', name: 'Quản lý Nhóm', status: 'active', parent_code: null },
     ];
 
     const createdPermissions: Map<string, Permission> = new Map();
@@ -170,10 +107,14 @@ export class SeedPermissions {
         }
       }
 
+      // Tự động set scope: nếu code bắt đầu bằng 'system.' thì scope = 'system', ngược lại = 'context'
+      const scope = permData.code.startsWith('system.') ? 'system' : 'context';
+
       const permission = permRepo.create({
         code: permData.code,
         name: permData.name,
         status: permData.status,
+        scope: scope,
         parent: parentPermission,
         created_user_id: defaultUserId,
         updated_user_id: defaultUserId,

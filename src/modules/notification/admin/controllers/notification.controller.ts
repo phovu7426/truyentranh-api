@@ -26,34 +26,34 @@ export class NotificationController {
 
   @LogRequest()
   @Post()
-  @Permission('notification:create')
+  @Permission('notification.manage')
   async create(@Body() dto: CreateNotificationDto) {
     return this.notificationService.create(dto);
   }
 
   @Get()
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getList(@Query() query: GetNotificationsDto) {
     const { filters, options } = prepareQuery(query);
     return this.notificationService.getList(filters, { ...options, sort: 'created_at:DESC' });
   }
 
   @Get('simple')
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getSimpleList(@Query() query: GetNotificationsDto) {
     const { filters, options } = prepareQuery(query);
     return this.notificationService.getSimpleList(filters, { ...options, sort: 'created_at:DESC' });
   }
 
   @Get(':id')
-  @Permission('notification:read')
+  @Permission('notification.manage')
   async getOne(@Param('id') id: string) {
     return this.notificationService.getOne({ id: +id });
   }
 
   @LogRequest()
   @Patch(':id')
-  @Permission('notification:update')
+  @Permission('notification.manage')
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateNotificationDto,
@@ -63,14 +63,14 @@ export class NotificationController {
 
   @LogRequest()
   @Delete(':id')
-  @Permission('notification:delete')
+  @Permission('notification.manage')
   async delete(@Param('id') id: string) {
     return this.notificationService.delete(+id);
   }
 
   @LogRequest()
   @Patch(':id/restore')
-  @Permission('notification:update')
+  @Permission('notification.manage')
   async restore(@Param('id') id: string) {
     return this.notificationService.restore(+id);
   }

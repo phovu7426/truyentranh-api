@@ -1,23 +1,26 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { Menu } from '@/shared/entities/menu.entity';
 import { Permission } from '@/shared/entities/permission.entity';
 import { CrudService } from '@/common/base/services/crud.service';
 import { ResponseRef } from '@/common/base/utils/response-ref.helper';
-import { RbacCacheService } from '@/modules/rbac/services/rbac-cache.service';
+import { RbacService } from '@/modules/rbac/services/rbac.service';
+import { RequestContext } from '@/common/utils/request-context.util';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
 import { MenuTreeItem } from '@/modules/menu/admin/menu/interfaces/menu-tree-item.interface';
 
 @Injectable()
 export class MenuService extends CrudService<Menu> {
+  private readonly logger = new Logger(MenuService.name);
+
   private get permRepo(): Repository<Permission> {
     return this.repository.manager.getRepository(Permission);
   }
 
   constructor(
     @InjectRepository(Menu) protected readonly repository: Repository<Menu>,
-    @Inject(RbacCacheService) private readonly rbacCache: RbacCacheService,
+    @Inject(RbacService) private readonly rbacService: RbacService,
   ) {
     super(repository);
   }
@@ -132,26 +135,51 @@ export class MenuService extends CrudService<Menu> {
   }
 
   /**
-   * Get menu tree filtered by user permissions
+   * Get menu tree filtered by user permissions in context
    */
   async getUserMenus(
     userId: number,
-    options?: { include_inactive?: boolean; flatten?: boolean; user_email?: string }
+    options?: { include_inactive?: boolean; flatten?: boolean; contextId?: number }
   ): Promise<MenuTreeItem[]> {
     const includeInactive = options?.include_inactive || false;
     const flatten = options?.flatten || false;
-    const isBypassUser = (options?.user_email || '').toLowerCase() === 'admin@example.com';
-
-    // Get user permissions from cache
-    let userPermissions: Set<string> | null = null;
-    if (!isBypassUser && this.rbacCache && typeof this.rbacCache.getUserPermissions === 'function') {
-      userPermissions = await this.rbacCache.getUserPermissions(userId);
+    
+    // ✅ MỚI: Lấy groupId từ RequestContext (group-based)
+    const groupId = RequestContext.get<number | null>('groupId');
+    
+    // Lấy context từ RequestContext hoặc từ group
+    let context = RequestContext.get<any>('context');
+    let contextType: string | null = null;
+    
+    if (groupId) {
+      // Nếu có groupId, lấy context từ group
+      const groupRepo = this.repository.manager.getRepository('Group');
+      const group = await groupRepo.findOne({ 
+        where: { id: groupId },
+        relations: ['context']
+      } as any);
+      
+      if (group && group.context) {
+        context = group.context;
+        contextType = group.context.type;
+      } else if (group && group.context_id) {
+        const contextRepo = this.repository.manager.getRepository('Context');
+        context = await contextRepo.findOne({ where: { id: group.context_id } } as any);
+        contextType = context?.type || null;
+      }
+    } else {
+      // Nếu không có groupId, lấy từ RequestContext
+      context = RequestContext.get<any>('context');
+      contextType = context?.type || null;
     }
-    if (!userPermissions) {
-      userPermissions = new Set<string>();
+    
+    // Fallback: nếu không có context type, dùng system
+    if (!contextType) {
+      contextType = 'system';
     }
 
     // Query menus using QueryBuilder to properly load nested relations
+    // ✅ MỚI: Không filter theo context prefix nữa, chỉ filter theo permission
     const queryBuilder = this.repository.createQueryBuilder('menu')
       .leftJoinAndSelect('menu.parent', 'parent')
       .leftJoinAndSelect('menu.children', 'children')
@@ -160,6 +188,8 @@ export class MenuService extends CrudService<Menu> {
       .leftJoinAndSelect('menu_permissions.permission', 'permission')
       .where('menu.show_in_menu = :showInMenu', { showInMenu: true });
 
+    this.logger.debug(`Getting all menus for user ${userId} in groupId=${groupId}, contextType=${contextType}`);
+
     if (!includeInactive) {
       queryBuilder.andWhere('menu.status = :status', { status: BasicStatus.Active });
     }
@@ -167,23 +197,124 @@ export class MenuService extends CrudService<Menu> {
     queryBuilder.orderBy('menu.sort_order', 'ASC');
 
     const menus = await queryBuilder.getMany();
+    
+    // Log menu codes để debug
+    const menuCodes = menus.map(m => m.code).join(', ');
+    this.logger.debug(`Query result: Found ${menus.length} menus with codes: [${menuCodes}]`);
 
-    // Bypass permission filtering for special admin email
-    if (isBypassUser) {
-      const tree = this.buildTree(menus);
-      return flatten ? this.flattenTree(tree) : tree;
+    // Nếu không có menu nào, trả về empty
+    if (!menus || menus.length === 0) {
+      this.logger.warn(`No menus found for user ${userId} in groupId ${groupId}`);
+      return [];
     }
 
-    // Filter menus by permissions
-    const filteredMenus = menus.filter(menu => {
-      if (menu.is_public) return true;
-      if (menu.required_permission?.code && userPermissions.has(menu.required_permission.code)) return true;
-      if (menu.menu_permissions?.some(mp => mp.permission?.code && userPermissions.has(mp.permission.code))) return true;
-      if (!menu.required_permission_id && (!menu.menu_permissions || menu.menu_permissions.length === 0)) return true;
+    this.logger.debug(`Found ${menus.length} menus, checking permissions for user ${userId} in groupId ${groupId}`);
+    
+    // ✅ MỚI: Lấy tất cả permissions của user trong group để check
+    // Build set of all permissions user has
+    const allPerms = new Set<string>();
+    const testPerms = menus
+      .filter(m => m.required_permission?.code || m.menu_permissions?.length)
+      .flatMap(m => [
+        ...(m.required_permission?.code ? [m.required_permission.code] : []),
+        ...(m.menu_permissions?.map(mp => mp.permission?.code).filter(Boolean) || []),
+      ]);
+
+    // Check từng permission một cách hiệu quả
+    for (const perm of new Set(testPerms)) {
+      // ✅ Dùng group-based permissions: user lấy menu dựa vào quyền trong group
+      const hasPerm = await this.rbacService.userHasPermissionsInGroup(userId, groupId ?? null, [perm]);
+      if (hasPerm) {
+        allPerms.add(perm);
+      }
+    }
+
+    // Filter menus by permissions (không có bypass)
+    // ✅ MỚI: Mỗi menu chỉ có 1 permission (required_permission), không cần check menu_permissions nữa
+    let filteredMenus = menus.filter(menu => {
+      // Menu public luôn hiển thị
+      if (menu.is_public) {
+        this.logger.debug(`Menu ${menu.code}: PUBLIC - showing`);
+        return true;
+      }
+      
+      // Menu không có permission requirement → hiển thị
+      const hasNoPermissionRequirement = 
+        (!menu.required_permission_id && !menu.required_permission);
+      
+      if (hasNoPermissionRequirement) {
+        this.logger.debug(`Menu ${menu.code}: NO PERMISSION REQUIREMENT - showing`);
+        return true;
+      }
+      
+      // ✅ MỚI: Menu có required_permission → check user có permission trong group không
+      if (menu.required_permission?.code) {
+        const hasRequiredPerm = allPerms.has(menu.required_permission.code);
+        this.logger.debug(`Menu ${menu.code}: required_permission=${menu.required_permission.code}, has=${hasRequiredPerm}, userPerms=[${Array.from(allPerms).join(', ')}]`);
+        if (hasRequiredPerm) {
+          return true;
+        }
+      }
+      
+      // Fallback: Nếu vẫn dùng menu_permissions (legacy)
+      if (menu.menu_permissions && menu.menu_permissions.length > 0) {
+        const menuPermCodes = menu.menu_permissions.map(mp => mp.permission?.code).filter(Boolean);
+        const hasAnyPerm = menuPermCodes.some(code => allPerms.has(code));
+        this.logger.debug(`Menu ${menu.code}: menu_permissions=[${menuPermCodes.join(', ')}], hasAny=${hasAnyPerm}`);
+        if (hasAnyPerm) {
+          return true;
+        }
+      }
+      
+      this.logger.debug(`Menu ${menu.code}: FILTERED OUT - no matching permissions. required_permission=${menu.required_permission?.code || 'none'}, userPerms=[${Array.from(allPerms).join(', ')}]`);
       return false;
     });
 
+    // ✅ MỚI: Filter các menu system-only (chỉ hiển thị trong system group)
+    // Các menu này chỉ hiển thị khi context type là 'system'
+    if (contextType !== 'system') {
+      const systemOnlyPermissions = [
+        'role.manage',
+        'permission.manage',
+        'group.manage',
+        'system.manage',
+        'config.manage',
+      ];
+      
+      const systemOnlyMenuCodes = [
+        'roles',
+        'permissions',
+        'groups',
+        'contexts',
+        'config-general',
+        'config-email',
+        'rbac-management',
+        'config-management',
+      ];
+      
+      filteredMenus = filteredMenus.filter(menu => {
+        // Check theo permission code
+        if (menu.required_permission?.code && systemOnlyPermissions.includes(menu.required_permission.code)) {
+          this.logger.debug(`Menu ${menu.code}: SYSTEM-ONLY (permission=${menu.required_permission.code}) - filtered out for contextType=${contextType}`);
+          return false;
+        }
+        
+        // Check theo menu code
+        if (systemOnlyMenuCodes.includes(menu.code)) {
+          this.logger.debug(`Menu ${menu.code}: SYSTEM-ONLY (menu code) - filtered out for contextType=${contextType}`);
+          return false;
+        }
+        
+        return true;
+      });
+    }
+
+    this.logger.debug(`Filtered ${filteredMenus.length} menus from ${menus.length} total menus for user ${userId} in groupId ${groupId}, contextType=${contextType}`);
+    const filteredMenuCodes = filteredMenus.map(m => m.code).join(', ');
+    this.logger.debug(`Filtered menu codes: [${filteredMenuCodes}]`);
+
     const tree = this.buildTree(filteredMenus);
+    this.logger.debug(`Built tree with ${tree.length} root items`);
     return flatten ? this.flattenTree(tree) : tree;
   }
 

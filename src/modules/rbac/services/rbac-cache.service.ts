@@ -56,6 +56,98 @@ export class RbacCacheService {
     // If you want per-user invalidation without global bump, store index of versions and delete specific keys (more complex)
     await this.bumpVersion();
   }
+
+  /**
+   * Get user permissions in context
+   */
+  async getUserPermissionsInContext(
+    userId: number,
+    contextId: number,
+  ): Promise<Set<string> | null> {
+    if (!this.redis.isEnabled()) return null;
+    const version = await this.getVersion();
+    const key = `rbac:user:${userId}:ctx:${contextId}:v${version}`;
+    const raw = await this.redis.get(key);
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw) as string[];
+      return new Set(arr);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Set user permissions in context
+   */
+  async setUserPermissionsInContext(
+    userId: number,
+    contextId: number,
+    permissions: Iterable<string>,
+  ): Promise<void> {
+    if (!this.redis.isEnabled()) return;
+    const version = await this.getVersion();
+    const key = `rbac:user:${userId}:ctx:${contextId}:v${version}`;
+    const arr = Array.from(new Set(permissions));
+    await this.redis.set(key, JSON.stringify(arr), this.ttlSeconds);
+  }
+
+  /**
+   * Clear user permissions in context
+   */
+  async clearUserPermissionsInContext(
+    userId: number,
+    contextId: number,
+  ): Promise<void> {
+    // Bump version to invalidate all caches
+    await this.bumpVersion();
+  }
+
+  /**
+   * Get user permissions in group
+   */
+  async getUserPermissionsInGroup(
+    userId: number,
+    groupId: number,
+  ): Promise<Set<string> | null> {
+    if (!this.redis.isEnabled()) return null;
+    const version = await this.getVersion();
+    const key = `rbac:user:${userId}:grp:${groupId}:v${version}`;
+    const raw = await this.redis.get(key);
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw) as string[];
+      return new Set(arr);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Set user permissions in group
+   */
+  async setUserPermissionsInGroup(
+    userId: number,
+    groupId: number,
+    permissions: Iterable<string>,
+  ): Promise<void> {
+    if (!this.redis.isEnabled()) return;
+    const version = await this.getVersion();
+    const key = `rbac:user:${userId}:grp:${groupId}:v${version}`;
+    const arr = Array.from(new Set(permissions));
+    await this.redis.set(key, JSON.stringify(arr), this.ttlSeconds);
+  }
+
+  /**
+   * Clear user permissions in group
+   */
+  async clearUserPermissionsInGroup(
+    userId: number,
+    groupId: number,
+  ): Promise<void> {
+    // Bump version to invalidate all caches
+    await this.bumpVersion();
+  }
 }
 
 

@@ -73,6 +73,7 @@ export class CreateCommerceTables1738000000200 implements MigrationInterface {
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         order_number VARCHAR(50) NOT NULL UNIQUE,
         user_id BIGINT UNSIGNED NULL,
+        group_id BIGINT UNSIGNED NULL,
         customer_name VARCHAR(255) NOT NULL,
         customer_email VARCHAR(255) NOT NULL,
         customer_phone VARCHAR(20) NOT NULL,
@@ -115,6 +116,7 @@ export class CreateCommerceTables1738000000200 implements MigrationInterface {
         INDEX idx_orders_deleted_at (deleted_at),
         INDEX idx_orders_session_token (session_token),
         INDEX idx_orders_user_session (user_id, session_token),
+        INDEX idx_orders_group_id (group_id),
         INDEX idx_orders_deleted_status_updated (deleted_at, status, updated_at),
         CONSTRAINT chk_order_total CHECK (total_amount >= 0),
         CONSTRAINT chk_orders_amounts_non_negative CHECK (

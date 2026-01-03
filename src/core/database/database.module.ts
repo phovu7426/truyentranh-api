@@ -21,6 +21,7 @@ import { SeedBanners } from '@/core/database/seeder/seed-banners';
 import { SeedContacts } from '@/core/database/seeder/seed-contacts';
 import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs';
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
+import { SeedGroups } from '@/core/database/seeder/seed-groups';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
     SeedContacts,
     SeedGeneralConfigs,
     SeedEmailConfigs,
+    SeedGroups,
   ],
   exports: [
     ...databaseProviders,

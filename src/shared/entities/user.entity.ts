@@ -1,9 +1,8 @@
-import { Entity, Column, ManyToMany, JoinTable, Index, OneToOne } from 'typeorm';
+import { Entity, Column, Index, OneToOne, OneToMany } from 'typeorm';
 import { UserStatus } from '@/shared/enums/user-status.enum';
-import { Gender } from '@/shared/enums/gender.enum';
-import { Role } from './role.entity';
-import { Permission } from './permission.entity';
 import { Profile } from './profile.entity';
+import { UserGroup } from './user-group.entity';
+import { UserRoleAssignment } from './user-role-assignment.entity';
 import { BaseEntity } from './base.entity';
 
 @Entity('users')
@@ -37,21 +36,12 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   remember_token?: string | null;
 
-  @ManyToMany(() => Role, (role) => role.users, { cascade: false })
-  @JoinTable({
-    name: 'user_roles',
-    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
-  })
-  roles?: Role[];
+  // ✅ Group-based relations
+  @OneToMany(() => UserGroup, (ug) => ug.user)
+  user_groups?: UserGroup[];
 
-  @ManyToMany(() => Permission, (permission) => permission.users, { cascade: false })
-  @JoinTable({
-    name: 'user_permissions',
-    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' },
-  })
-  direct_permissions?: Permission[];
+  @OneToMany(() => UserRoleAssignment, (ura) => ura.user)
+  user_role_assignments?: UserRoleAssignment[];
 
   @OneToOne(() => Profile, profile => profile.user, { cascade: true })
   profile?: Profile;

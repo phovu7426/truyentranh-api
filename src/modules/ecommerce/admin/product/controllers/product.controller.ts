@@ -26,21 +26,21 @@ export class AdminProductController {
   constructor(private readonly productService: AdminProductService) { }
 
   @Get()
-  @Permission('product:read')
+  @Permission('product.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('product:read')
+  @Permission('product.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productService.getSimpleList(filters, options);
   }
 
   @Get(':id')
-  @Permission('product:read')
+  @Permission('product.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.productService.getOne({ id }, {
       relations: [
@@ -52,14 +52,14 @@ export class AdminProductController {
 
   @LogRequest({ fileBaseName: 'admin_product_create' })
   @Post()
-  @Permission('product:create')
+  @Permission('product.manage')
   async create(@Body(ValidationPipe) dto: CreateProductDto) {
     return this.productService.create(dto as any);
   }
 
   @LogRequest({ fileBaseName: 'admin_product_update' })
   @Put(':id')
-  @Permission('product:update')
+  @Permission('product.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateProductDto,
@@ -69,7 +69,7 @@ export class AdminProductController {
 
   @LogRequest({ fileBaseName: 'admin_product_delete' })
   @Delete(':id')
-  @Permission('product:delete')
+  @Permission('product.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.productService.delete(id);
   }

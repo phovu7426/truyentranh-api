@@ -26,53 +26,53 @@ export class AdminProductCategoryController {
   constructor(private readonly productCategoryService: AdminProductCategoryService) { }
 
   @Get()
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productCategoryService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getSimpleList(@Query(ValidationPipe) query: any) {
     const { filters, options } = prepareQuery(query);
     return this.productCategoryService.getSimpleList(filters, options);
   }
 
   @Get('tree')
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getTree() {
     return this.productCategoryService.findTree();
   }
 
   @Get('root')
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getRootCategories() {
     return this.productCategoryService.findRootCategories();
   }
 
   @Get(':id/children')
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getChildren(@Param('id', ParseIntPipe) id: number) {
     return this.productCategoryService.findChildren(id);
   }
 
   @Get(':id')
-  @Permission('product-category:read')
+  @Permission('product_category.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.productCategoryService.getOne({ id } as any);
   }
 
   @LogRequest()
   @Post()
-  @Permission('product-category:create')
+  @Permission('product_category.manage')
   async create(@Body(ValidationPipe) dto: CreateProductCategoryDto) {
     return this.productCategoryService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('product-category:update')
+  @Permission('product_category.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateProductCategoryDto,
@@ -82,14 +82,14 @@ export class AdminProductCategoryController {
 
   @LogRequest()
   @Put(':id/restore')
-  @Permission('product-category:update')
+  @Permission('product_category.manage')
   async restore(@Param('id', ParseIntPipe) id: number) {
     return this.productCategoryService.restore(id);
   }
 
   @LogRequest()
   @Delete(':id')
-  @Permission('product-category:delete')
+  @Permission('product_category.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.productCategoryService.delete(id);
   }

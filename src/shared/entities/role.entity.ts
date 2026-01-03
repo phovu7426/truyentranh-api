@@ -9,7 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Permission } from './permission.entity';
-import { User } from './user.entity';
+import { RoleContext } from './role-context.entity';
 import { BaseEntity } from './base.entity';
 
 @Entity('roles')
@@ -44,6 +44,6 @@ export class Role extends BaseEntity {
   })
   permissions?: Permission[];
 
-  @ManyToMany(() => User, (user) => user.roles, { cascade: false })
-  users?: User[];
+  @OneToMany(() => RoleContext, (roleContext) => roleContext.role)
+  role_contexts?: RoleContext[];
 }

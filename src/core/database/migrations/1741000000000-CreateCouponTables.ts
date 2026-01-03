@@ -22,6 +22,12 @@ export class CreateCouponTables1741000000000 implements MigrationInterface {
             isUnique: true,
           },
           {
+            name: 'group_id',
+            type: 'bigint',
+            unsigned: true,
+            isNullable: true,
+          },
+          {
             name: 'name',
             type: 'varchar',
             length: '255',
@@ -164,6 +170,14 @@ export class CreateCouponTables1741000000000 implements MigrationInterface {
       new TableIndex({
         name: 'idx_coupons_dates',
         columnNames: ['start_date', 'end_date'],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      'coupons',
+      new TableIndex({
+        name: 'idx_coupons_group_id',
+        columnNames: ['group_id'],
       }),
     );
 

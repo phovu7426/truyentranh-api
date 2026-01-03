@@ -22,6 +22,7 @@ import { BaseEntity } from './base.entity';
 @Index('idx_products_status_featured', ['status', 'is_featured'])
 @Index('idx_products_status_created', ['status', 'created_at'])
 @Index('idx_products_deleted_at', ['deleted_at'])
+@Index('idx_products_group_id', ['group_id'])
 export class Product extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255 })
@@ -80,6 +81,14 @@ export class Product extends BaseEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   og_image?: string | null;
+
+  /**
+   * Group/Context owner của product (shop, org, project...)
+   * - Mặc định NULL → thuộc system/global catalog
+   * - Khi chạy đa-tenant: luôn set theo group hiện tại
+   */
+  @Column({ type: 'bigint', unsigned: true, nullable: true })
+  group_id?: number | null;
 
   // Relations
   @OneToMany('ProductVariant', 'product')

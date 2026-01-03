@@ -132,6 +132,12 @@ export class CreatePostsTable1737000008000 implements MigrationInterface {
             isNullable: true,
           },
           {
+            name: 'group_id',
+            type: 'bigint',
+            unsigned: true,
+            isNullable: true,
+          },
+          {
             name: 'created_user_id',
             type: 'bigint',
             unsigned: true,
@@ -255,6 +261,13 @@ export class CreatePostsTable1737000008000 implements MigrationInterface {
       new TableIndex({
         name: 'idx_primary_category_status',
         columnNames: ['primary_postcategory_id', 'status'],
+      }),
+    );
+    await queryRunner.createIndex(
+      'posts',
+      new TableIndex({
+        name: 'idx_posts_group_id',
+        columnNames: ['group_id'],
       }),
     );
     await queryRunner.createIndex(

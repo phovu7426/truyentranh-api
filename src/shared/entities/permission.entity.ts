@@ -13,11 +13,15 @@ import { BaseEntity } from './base.entity';
 
 @Entity('permissions')
 @Index(['code'], { unique: true })
+@Index(['scope'])
 @Index('idx_deleted_at', ['deleted_at']) // Index cho soft delete
 export class Permission extends BaseEntity {
 
   @Column({ type: 'varchar', length: 120 })
   code: string;
+
+  @Column({ type: 'varchar', length: 30, default: 'context' })
+  scope: string; // 'system' | 'context'
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   name?: string | null;
@@ -37,7 +41,4 @@ export class Permission extends BaseEntity {
 
   @ManyToMany(() => Role, (role) => role.permissions, { cascade: false })
   roles?: Role[];
-
-  @ManyToMany(() => User, (user) => user.direct_permissions, { cascade: false })
-  users?: User[];
 }

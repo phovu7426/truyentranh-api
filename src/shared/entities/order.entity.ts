@@ -26,6 +26,7 @@ import { BaseEntity } from './base.entity';
 @Index('idx_orders_user_status', ['user_id', 'status'])
 @Index('idx_orders_deleted_at', ['deleted_at'])
 @Index('idx_orders_order_type', ['order_type'])
+@Index('idx_orders_group_id', ['group_id'])
 export class Order extends BaseEntity {
 
   @Column({ type: 'varchar', length: 50, unique: true })
@@ -99,6 +100,13 @@ export class Order extends BaseEntity {
 
   @Column({ type: 'datetime', nullable: true })
   delivered_at?: Date | null;
+
+  /**
+   * Group/Context mà order thuộc về (shop, org, project...)
+   * - Cho phép thống kê, filter theo context
+   */
+  @Column({ type: 'bigint', unsigned: true, nullable: true })
+  group_id?: number | null;
 
   // Relations
   @ManyToOne(() => User, { nullable: true })

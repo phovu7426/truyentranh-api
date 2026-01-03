@@ -57,4 +57,35 @@ export class GeneralConfig extends BaseEntity {
 
   @Column({ type: 'json', nullable: true })
   contact_channels?: ContactChannel[] | null;
+
+  // SEO fields
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  meta_title?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  meta_keywords?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  og_title?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  og_description?: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  og_image?: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  canonical_url?: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  google_analytics_id?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  google_search_console?: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  facebook_pixel_id?: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  twitter_site?: string | null;
 }

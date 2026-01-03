@@ -4,6 +4,8 @@ import { Repository, In } from 'typeorm';
 import { Product } from '@/shared/entities/product.entity';
 import { ProductCategory } from '@/shared/entities/product-category.entity';
 import { CrudService } from '@/common/base/services/crud.service';
+import { RequestContext } from '@/common/utils/request-context.util';
+import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
 
 @Injectable()
 export class AdminProductService extends CrudService<Product> {
@@ -18,6 +20,36 @@ export class AdminProductService extends CrudService<Product> {
 
   // Biến tạm để lưu trữ category_ids khi tạo sản phẩm
   private tempCategoryIds: string[] = [];
+
+  /**
+   * Áp dụng filter theo group/context mặc định nếu có contextId
+   */
+  protected override prepareFilters(
+    filters?: any,
+    _options?: any,
+  ): boolean | any {
+    const prepared = { ...(filters || {}) };
+
+    // Nếu đã truyền group_id trong filters thì không override
+    if (prepared.group_id === undefined) {
+      const contextId = RequestContext.get<number>('contextId');
+      const context: any = RequestContext.get('context');
+      const groupId = RequestContext.get<number | null>('groupId');
+
+      // Nếu context không phải system (contextId !== 1) và có ref_id, dùng ref_id làm group_id
+      // System context (id=1) → group_id = null (lấy tất cả products global)
+      // Context khác (shop, team, ...) → group_id = context.ref_id (chỉ lấy products của group đó)
+      if (contextId && contextId !== 1 && groupId) {
+        prepared.group_id = groupId;
+      } else if (contextId === 1) {
+        // System context: có thể lấy tất cả hoặc chỉ lấy products không có group_id
+        // Ở đây để null để lấy tất cả (bao gồm cả products có và không có group_id)
+        // Nếu muốn chỉ lấy products global, set: prepared.group_id = null
+      }
+    }
+
+    return prepared;
+  }
 
   /**
    * Hook trước khi tạo
@@ -39,7 +71,14 @@ export class AdminProductService extends CrudService<Product> {
   /**
    * Hook trước khi update
    */
-  protected async beforeUpdate(entity: Product, updateDto: any): Promise<boolean> {
+  protected override async beforeUpdate(
+    entity: Product,
+    updateDto: any,
+    response?: any
+  ): Promise<boolean> {
+    // Verify ownership trước
+    verifyGroupOwnership(entity);
+
     await this.ensureSlug(updateDto, entity.id, entity.slug);
 
     // Xử lý category_ids nếu có
@@ -107,6 +146,28 @@ export class AdminProductService extends CrudService<Product> {
       product.category_ids = product.categories.map(c => c.id);
     }
     return product;
+  }
+
+  /**
+   * Override getOne để verify ownership
+   */
+  override async getOne(where: any, options?: any): Promise<Product | null> {
+    const product = await super.getOne(where, options);
+    if (product) {
+      verifyGroupOwnership(product);
+    }
+    return product;
+  }
+
+  /**
+   * Override beforeDelete để verify ownership
+   */
+  protected override async beforeDelete(
+    entity: Product,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
   }
 
 }

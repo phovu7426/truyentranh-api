@@ -21,6 +21,12 @@ export class CreatePermissionsTable1737000001000 implements MigrationInterface {
             length: '120',
           },
           {
+            name: 'scope',
+            type: 'varchar',
+            length: '30',
+            default: "'context'",
+          },
+          {
             name: 'name',
             type: 'varchar',
             length: '150',
@@ -77,6 +83,13 @@ export class CreatePermissionsTable1737000001000 implements MigrationInterface {
       new TableIndex({
         name: 'IDX_permissions_code',
         columnNames: ['code'],
+      }),
+    );
+    await queryRunner.createIndex(
+      'permissions',
+      new TableIndex({
+        name: 'IDX_permissions_scope',
+        columnNames: ['scope'],
       }),
     );
     await queryRunner.createIndex(

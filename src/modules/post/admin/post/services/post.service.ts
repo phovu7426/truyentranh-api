@@ -5,6 +5,8 @@ import { Post } from '@/shared/entities/post.entity';
 import { PostCategory } from '@/shared/entities/post-category.entity';
 import { PostTag } from '@/shared/entities/post-tag.entity';
 import { CrudService } from '@/common/base/services/crud.service';
+import { RequestContext } from '@/common/utils/request-context.util';
+import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
 
 @Injectable()
 export class PostService extends CrudService<Post> {
@@ -23,6 +25,29 @@ export class PostService extends CrudService<Post> {
   }
 
   /**
+   * Áp dụng filter theo group/context mặc định nếu có contextId
+   */
+  protected override prepareFilters(
+    filters?: any,
+    _options?: any,
+  ): boolean | any {
+    const prepared = { ...(filters || {}) };
+
+    // Nếu đã truyền group_id trong filters thì không override
+    if (prepared.group_id === undefined) {
+      const contextId = RequestContext.get<number>('contextId');
+      const groupId = RequestContext.get<number | null>('groupId');
+
+      // Nếu context không phải system (contextId !== 1) và có ref_id, dùng ref_id làm group_id
+      if (contextId && contextId !== 1 && groupId) {
+        prepared.group_id = groupId;
+      }
+    }
+
+    return prepared;
+  }
+
+  /**
    * Override để load relations trong admin
    */
   protected override prepareOptions(queryOptions: any = {}) {
@@ -33,20 +58,6 @@ export class PostService extends CrudService<Post> {
     } as any;
   }
 
-  /**
-   * Override getOne để load relations
-   */
-  async getOne(
-    where: any,
-    options?: any,
-  ) {
-    // Đảm bảo load relations trong admin
-    const adminOptions = {
-      ...options,
-      relations: ['primary_category', 'categories', 'tags'],
-    };
-    return super.getOne(where, adminOptions);
-  }
 
   /**
    * Transform data sau khi lấy danh sách để chỉ giữ các fields cần thiết
@@ -135,19 +146,6 @@ export class PostService extends CrudService<Post> {
     return true;
   }
 
-  /**
-   * Hook trước khi cập nhật - xử lý slug
-   */
-  protected async beforeUpdate(entity: Post, updateDto: DeepPartial<Post>): Promise<boolean> {
-    await this.ensureSlug(updateDto, entity.id, entity.slug);
-    if ('tag_ids' in (updateDto as any)) {
-      delete (updateDto as any).tag_ids;
-    }
-    if ('category_ids' in (updateDto as any)) {
-      delete (updateDto as any).category_ids;
-    }
-    return true;
-  }
 
   /**
    * Sau khi tạo: không cần làm gì vì relations đã được set trong beforeCreate
@@ -207,6 +205,52 @@ export class PostService extends CrudService<Post> {
     if (tagIdsProvided) entity.tags = tags;
     if (categoryIdsProvided) entity.categories = categories;
     await this.repository.save(entity);
+  }
+
+  /**
+   * Override getOne để load relations và verify ownership
+   */
+  override async getOne(where: any, options?: any): Promise<Post | null> {
+    // Đảm bảo load relations trong admin
+    const adminOptions = {
+      ...options,
+      relations: ['primary_category', 'categories', 'tags'],
+    };
+    const post = await super.getOne(where, adminOptions);
+    if (post) {
+      verifyGroupOwnership(post);
+    }
+    return post;
+  }
+
+  /**
+   * Override beforeUpdate để verify ownership
+   */
+  protected override async beforeUpdate(
+    entity: Post,
+    updateDto: DeepPartial<Post>,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    await this.ensureSlug(updateDto, entity.id, entity.slug);
+    if ('tag_ids' in (updateDto as any)) {
+      delete (updateDto as any).tag_ids;
+    }
+    if ('category_ids' in (updateDto as any)) {
+      delete (updateDto as any).category_ids;
+    }
+    return true;
+  }
+
+  /**
+   * Override beforeDelete để verify ownership
+   */
+  protected override async beforeDelete(
+    entity: Post,
+    response?: any
+  ): Promise<boolean> {
+    verifyGroupOwnership(entity);
+    return true;
   }
 
 }

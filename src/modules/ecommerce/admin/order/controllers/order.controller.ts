@@ -14,14 +14,14 @@ export class AdminOrderController {
   constructor(private readonly orderService: AdminOrderService) { }
 
   @Get()
-  @Permission('read:orders')
+  @Permission('read:orders', 'update:orders', 'order.manage')
   async getList(@Query() query: GetOrdersDto) {
     const { filters, options } = prepareQuery(query);
     return this.orderService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('read:orders')
+  @Permission('read:orders', 'update:orders', 'order.manage')
   async getSimpleList(@Query() query: GetOrdersDto) {
     const { filters, options } = prepareQuery(query);
     return this.orderService.getSimpleList(filters, options);
@@ -30,14 +30,14 @@ export class AdminOrderController {
   // Statistics endpoint removed as service method was deleted
 
   @Get(':id')
-  @Permission('read:orders')
+  @Permission('read:orders', 'update:orders', 'order.manage')
   async getOrderById(@Param('id') id: string) {
     return this.orderService.getOrderById(id);
   }
 
   @LogRequest()
   @Patch(':id/status')
-  @Permission('update:orders')
+  @Permission('read:orders', 'update:orders', 'order.manage')
   async updateOrderStatus(
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
@@ -47,7 +47,7 @@ export class AdminOrderController {
 
   @LogRequest()
   @Patch(':id')
-  @Permission('update:orders')
+  @Permission('read:orders', 'update:orders', 'order.manage')
   async updateOrder(
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,

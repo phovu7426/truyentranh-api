@@ -21,6 +21,7 @@ export enum CouponStatus {
 @Index('idx_coupons_code', ['code'], { unique: true })
 @Index('idx_coupons_status', ['status'])
 @Index('idx_coupons_dates', ['start_date', 'end_date'])
+@Index('idx_coupons_group_id', ['group_id'])
 export class Coupon extends BaseEntity {
 
   @Column({ type: 'varchar', length: 50, unique: true })
@@ -73,4 +74,11 @@ export class Coupon extends BaseEntity {
 
   @Column({ type: 'boolean', default: false })
   first_order_only: boolean;
+
+  /**
+   * Group/Context mà coupon thuộc về (shop, org...)
+   * - NULL = coupon global (áp dụng cho mọi context nếu không filter)
+   */
+  @Column({ type: 'bigint', unsigned: true, nullable: true })
+  group_id?: number | null;
 }

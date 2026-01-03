@@ -8,6 +8,7 @@ import {
 import { EmailConfigService } from '../services/email-config.service';
 import { UpdateEmailConfigDto } from '../dtos/update-email-config.dto';
 import { LogRequest } from '@/common/decorators/log-request.decorator';
+import { Permission } from '@/common/decorators/rbac.decorators';
 import { AuthService } from '@/common/services/auth.service';
 
 @Controller('admin/system-config/email')
@@ -20,6 +21,7 @@ export class EmailConfigController {
   /**
    * Lấy cấu hình email
    */
+  @Permission('config.manage')
   @Get()
   getConfig() {
     return this.emailConfigService.getConfig();
@@ -28,6 +30,7 @@ export class EmailConfigController {
   /**
    * Cập nhật cấu hình email
    */
+  @Permission('config.manage')
   @LogRequest()
   @Put()
   updateConfig(@Body(ValidationPipe) dto: UpdateEmailConfigDto) {

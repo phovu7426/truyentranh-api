@@ -28,6 +28,7 @@
     "db:drop": "ts-node -r tsconfig-paths/register src/core/database/cli/drop-database.ts",
     "seed": "ts-node -r tsconfig-paths/register src/core/database/cli/seed.ts",
     "seed:refresh": "ts-node -r tsconfig-paths/register src/core/database/cli/seed.ts --refresh",
+    "fix:admin": "ts-node -r tsconfig-paths/register src/core/database/cli/fix-admin.ts",
     "seed:posts": "ts-node -r tsconfig-paths/register src/core/database/cli/seed-posts.ts",
     "seed:posts:refresh": "ts-node -r tsconfig-paths/register src/core/database/cli/seed-posts.ts --refresh"
   },

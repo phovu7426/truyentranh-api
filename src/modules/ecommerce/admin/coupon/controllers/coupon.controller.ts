@@ -27,41 +27,41 @@ export class AdminCouponController {
   constructor(private readonly couponService: AdminCouponService) {}
 
   @Get()
-  @Permission('coupon:read')
+  @Permission('coupon:manage', 'coupon.manage')
   async getList(@Query(ValidationPipe) query: GetCouponsDto) {
     const { filters, options } = prepareQuery(query);
     return this.couponService.getList(filters, options);
   }
 
   @Get('simple')
-  @Permission('coupon:read')
+  @Permission('coupon:manage', 'coupon.manage')
   async getSimpleList(@Query(ValidationPipe) query: GetCouponsDto) {
     const { filters, options } = prepareQuery(query);
     return this.couponService.getSimpleList(filters, options);
   }
 
   @Get(':id')
-  @Permission('coupon:read')
+  @Permission('coupon:manage', 'coupon.manage')
   async getOne(@Param('id', ParseIntPipe) id: number) {
     return this.couponService.getOne({ id } as any);
   }
 
   @Get(':id/stats')
-  @Permission('coupon:read')
+  @Permission('coupon:manage', 'coupon.manage')
   async getStats(@Param('id', ParseIntPipe) id: number) {
     return this.couponService.getCouponStats(id);
   }
 
   @LogRequest()
   @Post()
-  @Permission('coupon:create')
+  @Permission('coupon:manage', 'coupon.manage')
   async create(@Body(ValidationPipe) dto: CreateCouponDto) {
     return this.couponService.create(dto as any);
   }
 
   @LogRequest()
   @Put(':id')
-  @Permission('coupon:update')
+  @Permission('coupon:manage', 'coupon.manage')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateCouponDto,
@@ -71,7 +71,7 @@ export class AdminCouponController {
 
   @LogRequest()
   @Delete(':id')
-  @Permission('coupon:delete')
+  @Permission('coupon:manage', 'coupon.manage')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.couponService.softDelete(id);
   }
