@@ -55,9 +55,6 @@ export class SeedPermissions {
       // ========== CONFIG MODULE ==========
       { code: 'config.manage', name: 'Quản lý Cấu hình', status: 'active', parent_code: null },
       
-      // ========== PAYMENT MODULE ==========
-      { code: 'payment_method.manage', name: 'Quản lý Phương thức thanh toán', status: 'active', parent_code: null },
-      
       // ========== SHIPPING MODULE ==========
       { code: 'shipping_method.manage', name: 'Quản lý Phương thức vận chuyển', status: 'active', parent_code: null },
       

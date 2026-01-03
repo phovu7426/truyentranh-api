@@ -6,12 +6,8 @@ import { SeedUsers } from '@/core/database/seeder/seed-users';
 import { SeedPostCategories } from '@/core/database/seeder/seed-post-categories';
 import { SeedPostTags } from '@/core/database/seeder/seed-post-tags';
 import { SeedPosts } from '@/core/database/seeder/seed-posts';
-import { SeedProductCategories } from '@/core/database/seeder/seed-product-categories';
-import { SeedProductAttributes } from '@/core/database/seeder/seed-product-attributes';
-import { SeedProducts } from '@/core/database/seeder/seed-products';
-import { SeedShippingMethods } from '@/core/database/seeder/seed-shipping-methods';
-import { SeedPaymentMethods } from '@/core/database/seeder/seed-payment-methods';
-import { SeedWarehouses } from '@/core/database/seeder/seed-warehouses';
+// import { SeedShippingMethods } from '@/core/database/seeder/seed-shipping-methods'; // Commented out vì shipping-method đã bị xóa
+// import { SeedWarehouses } from '@/core/database/seeder/seed-warehouses';
 import { SeedMenus } from '@/core/database/seeder/seed-menus';
 import { SeedBannerLocations } from '@/core/database/seeder/seed-banner-locations';
 import { SeedBanners } from '@/core/database/seeder/seed-banners';
@@ -19,6 +15,7 @@ import { SeedContacts } from '@/core/database/seeder/seed-contacts';
 import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs';
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
 import { SeedGroups } from '@/core/database/seeder/seed-groups';
+import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categories';
 
 @Injectable()
 export class SeedService {
@@ -32,12 +29,8 @@ export class SeedService {
     private readonly seedPostCategories: SeedPostCategories,
     private readonly seedPostTags: SeedPostTags,
     private readonly seedPosts: SeedPosts,
-    private readonly seedProductCategories: SeedProductCategories,
-    private readonly seedProductAttributes: SeedProductAttributes,
-    private readonly seedProducts: SeedProducts,
-    private readonly seedShippingMethods: SeedShippingMethods,
-    private readonly seedPaymentMethods: SeedPaymentMethods,
-    private readonly seedWarehouses: SeedWarehouses,
+    // private readonly seedShippingMethods: SeedShippingMethods, // Commented out vì shipping-method đã bị xóa
+    // private readonly seedWarehouses: SeedWarehouses,
     private readonly seedMenus: SeedMenus,
     private readonly seedBannerLocations: SeedBannerLocations,
     private readonly seedBanners: SeedBanners,
@@ -45,6 +38,7 @@ export class SeedService {
     private readonly seedGeneralConfigs: SeedGeneralConfigs,
     private readonly seedEmailConfigs: SeedEmailConfigs,
     private readonly seedGroups: SeedGroups,
+    private readonly seedComicCategories: SeedComicCategories,
   ) { }
 
   async seedAll(): Promise<void> {
@@ -63,13 +57,12 @@ export class SeedService {
       await this.seedPostTags.seed();
       await this.seedPosts.seed();
 
+      // comics demo
+      await this.seedComicCategories.seed();
+
       // ecommerce demo (gắn với group/context nếu có)
-      await this.seedProductCategories.seed();
-      await this.seedProductAttributes.seed();
-      await this.seedProducts.seed();
-      await this.seedWarehouses.seed();
-      await this.seedShippingMethods.seed();
-      await this.seedPaymentMethods.seed();
+      // await this.seedWarehouses.seed(); // Commented out vì liên quan đến product
+      // await this.seedShippingMethods.seed(); // Commented out vì shipping-method đã bị xóa
       await this.seedMenus.seed();
 
       // Banner system
@@ -145,7 +138,6 @@ export class SeedService {
         await truncateTable('order_items');
         await truncateTable('payments');
         await truncateTable('orders');
-        await truncateTable('payment_methods');
         await truncateTable('shipping_methods');
         await truncateTable('carts');
         await truncateTable('cart_headers');

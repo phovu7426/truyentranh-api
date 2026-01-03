@@ -458,22 +458,6 @@ export class SeedMenus {
         permission_code: 'coupon.manage',
       },
       
-      // ========== PHƯƠNG THỨC THANH TOÁN ==========
-      {
-        code: 'payment-methods',
-        name: 'Phương thức thanh toán',
-        path: '/admin/payment-methods',
-        api_path: 'api/admin/payment-methods',
-        icon: '💳',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
-        parent_id: null,
-        sort_order: 90,
-        is_public: false,
-        show_in_menu: true,
-        permission_code: 'payment_method.manage',
-      },
-      
       // ========== PHƯƠNG THỨC VẬN CHUYỂN ==========
       {
         code: 'shipping-methods',

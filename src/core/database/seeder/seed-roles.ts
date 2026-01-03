@@ -152,7 +152,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'payment_method.manage',          // Quản lý Phương thức thanh toán
         'shipping_method.manage',          // Quản lý Phương thức vận chuyển
       ];
       const shopAdminPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
@@ -168,7 +167,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'payment_method.manage',          // Quản lý Phương thức thanh toán
         'shipping_method.manage',          // Quản lý Phương thức vận chuyển
         'user.manage',                     // Quản lý Người dùng (quản lý tài khoản)
       ];
@@ -187,7 +185,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'payment_method.manage',          // Quản lý Phương thức thanh toán
         'shipping_method.manage',          // Quản lý Phương thức vận chuyển
       ];
       const comicAdminPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
@@ -203,7 +200,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'payment_method.manage',          // Quản lý Phương thức thanh toán
         'shipping_method.manage',          // Quản lý Phương thức vận chuyển
         'user.manage',                     // Quản lý Người dùng (quản lý tài khoản)
       ];

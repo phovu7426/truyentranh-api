@@ -9,12 +9,6 @@ import { SeedUsers } from '@/core/database/seeder/seed-users';
 import { SeedPostCategories } from '@/core/database/seeder/seed-post-categories';
 import { SeedPostTags } from '@/core/database/seeder/seed-post-tags';
 import { SeedPosts } from '@/core/database/seeder/seed-posts';
-import { SeedProductCategories } from '@/core/database/seeder/seed-product-categories';
-import { SeedProductAttributes } from '@/core/database/seeder/seed-product-attributes';
-import { SeedProducts } from '@/core/database/seeder/seed-products';
-import { SeedShippingMethods } from '@/core/database/seeder/seed-shipping-methods';
-import { SeedPaymentMethods } from '@/core/database/seeder/seed-payment-methods';
-import { SeedWarehouses } from '@/core/database/seeder/seed-warehouses';
 import { SeedMenus } from '@/core/database/seeder/seed-menus';
 import { SeedBannerLocations } from '@/core/database/seeder/seed-banner-locations';
 import { SeedBanners } from '@/core/database/seeder/seed-banners';
@@ -22,6 +16,7 @@ import { SeedContacts } from '@/core/database/seeder/seed-contacts';
 import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs';
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
 import { SeedGroups } from '@/core/database/seeder/seed-groups';
+import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categories';
 
 @Module({
   imports: [
@@ -62,12 +57,6 @@ import { SeedGroups } from '@/core/database/seeder/seed-groups';
     SeedPostCategories,
     SeedPostTags,
     SeedPosts,
-    SeedProductCategories,
-    SeedProductAttributes,
-    SeedProducts,
-    SeedShippingMethods,
-    SeedPaymentMethods,
-    SeedWarehouses,
     SeedMenus,
     SeedBannerLocations,
     SeedBanners,
@@ -75,6 +64,7 @@ import { SeedGroups } from '@/core/database/seeder/seed-groups';
     SeedGeneralConfigs,
     SeedEmailConfigs,
     SeedGroups,
+    SeedComicCategories,
   ],
   exports: [
     ...databaseProviders,

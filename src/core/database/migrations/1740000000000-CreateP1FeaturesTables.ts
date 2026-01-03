@@ -2,6 +2,10 @@ import { MigrationInterface, QueryRunner, Table, TableIndex, TableForeignKey } f
 
 export class CreateP1FeaturesTables1740000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // All ecommerce tables removed (promotions, tracking_history, warehouses, warehouse_inventory, stock_transfers)
+    // These tables are no longer needed as ecommerce features have been removed
+    return;
+    /* Commented out - Ecommerce removed
     // Create promotions table
     await queryRunner.createTable(
       new Table({
@@ -125,104 +129,7 @@ export class CreateP1FeaturesTables1740000000000 implements MigrationInterface {
       }),
     );
 
-    // Create tracking_history table
-    await queryRunner.createTable(
-      new Table({
-        name: 'tracking_history',
-        columns: [
-          {
-            name: 'id',
-            type: 'bigint',
-            isPrimary: true,
-            isGenerated: true,
-            generationStrategy: 'increment',
-            unsigned: true,
-          },
-          {
-            name: 'order_id',
-            type: 'bigint',
-            unsigned: true,
-          },
-          {
-            name: 'status',
-            type: 'varchar',
-            length: '100',
-          },
-          {
-            name: 'location',
-            type: 'varchar',
-            length: '255',
-            isNullable: true,
-          },
-          {
-            name: 'description',
-            type: 'text',
-          },
-          {
-            name: 'shipping_provider',
-            type: 'varchar',
-            length: '50',
-            isNullable: true,
-          },
-          {
-            name: 'metadata',
-            type: 'json',
-            isNullable: true,
-          },
-          {
-            name: 'timestamp',
-            type: 'datetime',
-          },
-          {
-            name: 'created_user_id',
-            type: 'bigint',
-            unsigned: true,
-            isNullable: true,
-          },
-          {
-            name: 'updated_user_id',
-            type: 'bigint',
-            unsigned: true,
-            isNullable: true,
-          },
-          {
-            name: 'created_at',
-            type: 'datetime',
-            default: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'updated_at',
-            type: 'datetime',
-            default: 'CURRENT_TIMESTAMP',
-            onUpdate: 'CURRENT_TIMESTAMP',
-          },
-          {
-            name: 'deleted_at',
-            type: 'datetime',
-            isNullable: true,
-          },
-        ],
-      }),
-      true,
-    );
-
-    await queryRunner.createIndex(
-      'tracking_history',
-      new TableIndex({
-        name: 'idx_tracking_history_order_id',
-        columnNames: ['order_id'],
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      'tracking_history',
-      new TableForeignKey({
-        columnNames: ['order_id'],
-        referencedColumnNames: ['id'],
-        referencedTableName: 'orders',
-        onDelete: 'CASCADE',
-      }),
-    );
+    // tracking_history table removed - không còn orders table
 
     // Create warehouses table
     await queryRunner.createTable(
@@ -630,13 +537,18 @@ export class CreateP1FeaturesTables1740000000000 implements MigrationInterface {
         referencedTableName: 'product_variants',
       }),
     );
+    */
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // All ecommerce tables removed
+    return;
+    /* Commented out - Ecommerce removed
     await queryRunner.dropTable('stock_transfers');
     await queryRunner.dropTable('warehouse_inventory');
     await queryRunner.dropTable('warehouses');
     await queryRunner.dropTable('tracking_history');
     await queryRunner.dropTable('promotions');
+    */
   }
 }

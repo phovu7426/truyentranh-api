@@ -26,8 +26,6 @@ import { GroupInterceptor } from '@/common/interceptors/group.interceptor';
 
 // New Domain Modules
 import { PostModule } from '@/modules/post/post.module';
-import { EcommerceModule } from '@/modules/ecommerce/ecommerce.module';
-import { PaymentMethodModule } from '@/modules/payment-method/payment-method.module';
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { UserManagementModule } from '@/modules/user-management/user-management.module';
 import { EnumModule } from '@/shared/enums/enum.module';
@@ -37,6 +35,7 @@ import { BannerModule } from '@/modules/banner/banner.module';
 import { ContactModule } from '@/modules/contact/contact.module';
 import { SystemConfigModule } from '@/modules/system-config/system-config.module';
 import { AppMailModule } from '@/core/mail/mail.module';
+import { ComicsModule } from '@/modules/comics/comics.module';
 
 @Module({
   imports: [
@@ -48,8 +47,6 @@ import { AppMailModule } from '@/core/mail/mail.module';
     ContextModule,
     // New Domain Modules
     PostModule,
-    EcommerceModule,
-    PaymentMethodModule,
     NotificationModule,
     UserManagementModule,
     EnumModule,
@@ -59,6 +56,7 @@ import { AppMailModule } from '@/core/mail/mail.module';
     ContactModule,
     SystemConfigModule,
     AppMailModule,
+    ComicsModule,
   ],
   controllers: [],
   providers: [
