@@ -59,3 +59,5 @@ export class CreateComicCategoryJunctionTable1750000000300 implements MigrationI
   }
 }
 
+
+

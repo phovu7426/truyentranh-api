@@ -16,6 +16,8 @@ import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs'
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
 import { SeedGroups } from '@/core/database/seeder/seed-groups';
 import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categories';
+import { SeedComics } from '@/core/database/seeder/seed-comics';
+import { SeedChapters } from '@/core/database/seeder/seed-chapters';
 
 @Injectable()
 export class SeedService {
@@ -39,6 +41,8 @@ export class SeedService {
     private readonly seedEmailConfigs: SeedEmailConfigs,
     private readonly seedGroups: SeedGroups,
     private readonly seedComicCategories: SeedComicCategories,
+    private readonly seedComics: SeedComics,
+    private readonly seedChapters: SeedChapters,
   ) { }
 
   async seedAll(): Promise<void> {
@@ -59,6 +63,8 @@ export class SeedService {
 
       // comics demo
       await this.seedComicCategories.seed();
+      await this.seedComics.seed();
+      await this.seedChapters.seed();
 
       // ecommerce demo (gắn với group/context nếu có)
       // await this.seedWarehouses.seed(); // Commented out vì liên quan đến product
@@ -116,6 +122,7 @@ export class SeedService {
         // Clear junction tables first (many-to-many)
         await truncateTable('post_posttag');
         await truncateTable('post_postcategory');
+        await truncateTable('comic_category');
         await truncateTable('user_role_assignments');
         await truncateTable('user_groups');
         await truncateTable('role_has_permissions');
@@ -126,6 +133,13 @@ export class SeedService {
         await truncateTable('post_postcategory');
         await truncateTable('posttag');
         await truncateTable('postcategory');
+        
+        // Clear comics tables
+        await truncateTable('chapter_pages');
+        await truncateTable('chapters');
+        await truncateTable('comic_stats');
+        await truncateTable('comics');
+        await truncateTable('comic_categories');
 
         // ecommerce junctions first
         await truncateTable('product_category');

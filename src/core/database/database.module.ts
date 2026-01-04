@@ -17,6 +17,8 @@ import { SeedGeneralConfigs } from '@/core/database/seeder/seed-general-configs'
 import { SeedEmailConfigs } from '@/core/database/seeder/seed-email-configs';
 import { SeedGroups } from '@/core/database/seeder/seed-groups';
 import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categories';
+import { SeedComics } from '@/core/database/seeder/seed-comics';
+import { SeedChapters } from '@/core/database/seeder/seed-chapters';
 
 @Module({
   imports: [
@@ -65,6 +67,8 @@ import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categorie
     SeedEmailConfigs,
     SeedGroups,
     SeedComicCategories,
+    SeedComics,
+    SeedChapters,
   ],
   exports: [
     ...databaseProviders,

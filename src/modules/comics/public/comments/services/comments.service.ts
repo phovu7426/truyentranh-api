@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from '@/shared/entities/comment.entity';
+import { createPaginationMeta } from '@/common/base/utils/pagination.helper';
 
 @Injectable()
 export class PublicCommentsService {
@@ -51,12 +52,7 @@ export class PublicCommentsService {
 
     return {
       data: topLevelComments,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: createPaginationMeta(page, limit, total),
     };
   }
 
@@ -99,13 +95,10 @@ export class PublicCommentsService {
 
     return {
       data: topLevelComments,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: createPaginationMeta(page, limit, total),
     };
   }
 }
+
+
 

@@ -6,11 +6,13 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { PublicReviewsService } from '@/modules/comics/public/reviews/services/reviews.service';
+import { Permission } from '@/common/decorators/rbac.decorators';
 
 @Controller('public/reviews')
 export class PublicReviewsController {
   constructor(private readonly reviewsService: PublicReviewsService) { }
 
+  @Permission('public')
   @Get('comics/:comicId')
   async getByComic(
     @Param('comicId', ParseIntPipe) comicId: number,
@@ -20,4 +22,6 @@ export class PublicReviewsController {
     return this.reviewsService.getByComic(comicId, page, limit);
   }
 }
+
+
 

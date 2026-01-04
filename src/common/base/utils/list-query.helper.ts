@@ -351,6 +351,11 @@ export function prepareQuery(query: any = {}): { filters: any; options: any } {
   if (query.page !== undefined) rootCompat.page = query.page;
   if (query.limit !== undefined) rootCompat.limit = query.limit;
   if (query.sort !== undefined) rootCompat.sort = query.sort;
+  // Hỗ trợ sort_by và sort_order (backward compatibility)
+  if (query.sort_by && !query.sort) {
+    const sortOrder = (query.sort_order || 'DESC').toUpperCase();
+    rootCompat.sort = `${query.sort_by}:${sortOrder}`;
+  }
   if (query.format !== undefined) rootCompat.format = query.format;
   const options = { ...rootCompat, ...optionInput };
   return { filters: filterInput, options };

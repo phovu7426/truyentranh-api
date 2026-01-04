@@ -49,3 +49,5 @@ export class ComicReview extends BaseEntity {
   updated_user?: User | null;
 }
 
+
+

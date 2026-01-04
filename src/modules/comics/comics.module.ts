@@ -28,6 +28,7 @@ import { PublicComicsModule } from '@/modules/comics/public/comics/comics.module
 import { PublicChaptersModule } from '@/modules/comics/public/chapters/chapters.module';
 import { PublicCommentsModule } from '@/modules/comics/public/comments/comments.module';
 import { PublicReviewsModule } from '@/modules/comics/public/reviews/reviews.module';
+import { PublicComicCategoriesModule } from '@/modules/comics/public/comic-categories/comic-categories.module';
 import { StatsModule } from '@/modules/comics/public/stats/stats.module';
 
 // Import user modules
@@ -69,6 +70,7 @@ import { Notification } from '@/shared/entities/notification.entity';
     PublicChaptersModule,
     PublicCommentsModule,
     PublicReviewsModule,
+    PublicComicCategoriesModule,
     StatsModule,
     // User modules
     UserReadingHistoryModule,

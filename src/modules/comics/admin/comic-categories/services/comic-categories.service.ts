@@ -33,3 +33,5 @@ export class ComicCategoriesService extends CrudService<ComicCategory> {
   }
 }
 
+
+

@@ -21,26 +21,31 @@ export class PublicComicsController {
     return this.comicsService.getList(filters, options);
   }
 
+  @Permission('public')
   @Get('trending')
   async getTrending(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
     return this.comicsService.getTrending(limit || 20);
   }
 
+  @Permission('public')
   @Get('popular')
   async getPopular(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
     return this.comicsService.getPopular(limit || 20);
   }
 
+  @Permission('public')
   @Get('newest')
   async getNewest(@Query('limit', new ParseIntPipe({ optional: true })) limit?: number) {
     return this.comicsService.getNewest(limit || 20);
   }
 
+  @Permission('public')
   @Get(':slug')
   async getBySlug(@Param('slug') slug: string) {
     return this.comicsService.getOne({ slug });
   }
 
+  @Permission('public')
   @Get(':slug/chapters')
   async getChaptersBySlug(@Param('slug') slug: string) {
     return this.comicsService.getChaptersBySlug(slug);

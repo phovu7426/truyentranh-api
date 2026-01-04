@@ -84,3 +84,5 @@ export class CreateComicFollowsTable1750000000800 implements MigrationInterface 
   }
 }
 
+
+
