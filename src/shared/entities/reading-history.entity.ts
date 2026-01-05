@@ -34,9 +34,6 @@ export class ReadingHistory {
   @Column({ type: 'bigint', unsigned: true })
   chapter_id: number;
 
-  @Column({ type: 'int', nullable: true })
-  last_page?: number | null;
-
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
   updated_at: Date;
 

@@ -28,12 +28,7 @@ export class CreateReadingHistoriesTable1750000000600 implements MigrationInterf
             name: 'chapter_id',
             type: 'bigint',
             unsigned: true,
-            isNullable: true,
-          },
-          {
-            name: 'last_page',
-            type: 'int',
-            isNullable: true,
+            isNullable: false,
           },
           {
             name: 'created_at',
@@ -107,7 +102,7 @@ export class CreateReadingHistoriesTable1750000000600 implements MigrationInterf
         columnNames: ['chapter_id'],
         referencedTableName: 'chapters',
         referencedColumnNames: ['id'],
-        onDelete: 'SET NULL',
+        onDelete: 'CASCADE',
       }),
     );
   }

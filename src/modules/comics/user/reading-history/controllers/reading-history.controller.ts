@@ -24,8 +24,8 @@ export class ReadingHistoryController {
 
   @Permission('comic.read')
   @Post()
-  async updateOrCreate(@Body(ValidationPipe) body: { comic_id: number; chapter_id: number; last_page?: number }) {
-    return this.readingHistoryService.updateOrCreate(body.comic_id, body.chapter_id, body.last_page);
+  async updateOrCreate(@Body(ValidationPipe) body: { comic_id: number; chapter_id: number }) {
+    return this.readingHistoryService.updateOrCreate(body.comic_id, body.chapter_id);
   }
 
   @Permission('comic.read')

@@ -18,7 +18,7 @@ export class ReadingHistoryService {
     });
   }
 
-  async updateOrCreate(comicId: number, chapterId: number, lastPage?: number) {
+  async updateOrCreate(comicId: number, chapterId: number) {
     const userId = RequestContext.get<number>('userId');
     if (!userId) {
       throw new Error('User not authenticated');
@@ -30,9 +30,6 @@ export class ReadingHistoryService {
 
     if (existing) {
       existing.chapter_id = chapterId;
-      if (lastPage !== undefined) {
-        existing.last_page = lastPage;
-      }
       return this.repo.save(existing);
     }
 
@@ -40,7 +37,6 @@ export class ReadingHistoryService {
       user_id: userId,
       comic_id: comicId,
       chapter_id: chapterId,
-      last_page: lastPage,
     });
     return this.repo.save(newHistory);
   }
