@@ -32,10 +32,15 @@ export class SeedPermissions {
       // ========== DASHBOARD MODULE ==========
       { code: 'dashboard.manage', name: 'Quản lý Dashboard', status: 'active', parent_code: null },
       
-      // ========== POST MODULE ==========
+      // ========== COMIC MODULE ==========
+      { code: 'comic.manage', name: 'Quản lý Truyện tranh', status: 'active', parent_code: null },
+      { code: 'comic_category.manage', name: 'Quản lý Danh mục truyện tranh', status: 'active', parent_code: null },
+      { code: 'chapter.manage', name: 'Quản lý Chương', status: 'active', parent_code: null },
+      
+      // ========== POST MODULE (Blog/Tin tức) ==========
       { code: 'post.manage', name: 'Quản lý Bài viết', status: 'active', parent_code: null },
-      { code: 'post_category.manage', name: 'Quản lý Danh mục', status: 'active', parent_code: null },
-      { code: 'post_tag.manage', name: 'Quản lý Thẻ', status: 'active', parent_code: null },
+      { code: 'post_category.manage', name: 'Quản lý Danh mục bài viết', status: 'active', parent_code: null },
+      { code: 'post_tag.manage', name: 'Quản lý Thẻ bài viết', status: 'active', parent_code: null },
       
       // ========== USER MODULE ==========
       { code: 'user.manage', name: 'Quản lý Người dùng', status: 'active', parent_code: null },
@@ -55,33 +60,12 @@ export class SeedPermissions {
       // ========== CONFIG MODULE ==========
       { code: 'config.manage', name: 'Quản lý Cấu hình', status: 'active', parent_code: null },
       
-      // ========== SHIPPING MODULE ==========
-      { code: 'shipping_method.manage', name: 'Quản lý Phương thức vận chuyển', status: 'active', parent_code: null },
-      
       // ========== BANNER MODULE ==========
       { code: 'banner.manage', name: 'Quản lý Banner', status: 'active', parent_code: null },
       { code: 'banner_location.manage', name: 'Quản lý Vị trí Banner', status: 'active', parent_code: null },
       
-      // ========== PRODUCT MODULE ==========
-      { code: 'product.manage', name: 'Quản lý Sản phẩm', status: 'active', parent_code: null },
-      { code: 'product_category.manage', name: 'Quản lý Danh mục sản phẩm', status: 'active', parent_code: null },
-      { code: 'product_attribute.manage', name: 'Quản lý Thuộc tính sản phẩm', status: 'active', parent_code: null },
-      { code: 'product_attribute_value.manage', name: 'Quản lý Giá trị thuộc tính', status: 'active', parent_code: null },
-      { code: 'product_variant.manage', name: 'Quản lý Biến thể sản phẩm', status: 'active', parent_code: null },
-      
-      // ========== ORDER MODULE ==========
-      { code: 'order.manage', name: 'Quản lý Đơn hàng', status: 'active', parent_code: null },
-      
-      // ========== WAREHOUSE MODULE ==========
-      { code: 'warehouse.manage', name: 'Quản lý Kho hàng', status: 'active', parent_code: null },
-      { code: 'warehouse_inventory.manage', name: 'Quản lý Tồn kho', status: 'active', parent_code: null },
-      { code: 'warehouse_transfer.manage', name: 'Quản lý Chuyển kho', status: 'active', parent_code: null },
-      
       // ========== NOTIFICATION MODULE ==========
       { code: 'notification.manage', name: 'Quản lý Thông báo', status: 'active', parent_code: null },
-      
-      // ========== COUPON MODULE ==========
-      { code: 'coupon.manage', name: 'Quản lý Mã giảm giá', status: 'active', parent_code: null },
       
       // ========== CONTACT MODULE ==========
       { code: 'contact.manage', name: 'Quản lý Liên hệ', status: 'active', parent_code: null },

@@ -145,19 +145,18 @@ export class SeedRoles {
 
     // ========== SHOP CONTEXT ROLES ==========
     
-    // ===== Shop Admin: Full quyền trừ vai trò, quyền, phân quyền, quản lý hệ thống, phương thức thanh toán, phương thức vận chuyển =====
+    // ===== Shop Admin: Full quyền trừ vai trò, quyền, phân quyền, quản lý hệ thống =====
     const shopAdminRole = createdRoles.get('shop_admin');
     if (shopAdminRole) {
       const excludedPerms = [
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'shipping_method.manage',          // Quản lý Phương thức vận chuyển
       ];
       const shopAdminPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
       shopAdminRole.permissions = shopAdminPerms;
       const saved = await roleRepo.save(shopAdminRole);
-      this.logger.log(`✅ Assigned ${saved.permissions?.length ?? 0} permissions to shop_admin role (full trừ vai trò, quyền, phân quyền, hệ thống, payment, shipping)`);
+      this.logger.log(`✅ Assigned ${saved.permissions?.length ?? 0} permissions to shop_admin role (full trừ vai trò, quyền, phân quyền, hệ thống)`);
     }
 
     // ===== Shop Manager: Giống shop_admin nhưng bỏ quản lý tài khoản =====
@@ -167,7 +166,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'shipping_method.manage',          // Quản lý Phương thức vận chuyển
         'user.manage',                     // Quản lý Người dùng (quản lý tài khoản)
       ];
       const shopManagerPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
@@ -178,19 +176,18 @@ export class SeedRoles {
 
     // ========== COMIC CONTEXT ROLES ==========
     
-    // ===== Comic Admin: Full quyền trừ vai trò, quyền, phân quyền, quản lý hệ thống, phương thức thanh toán, phương thức vận chuyển =====
+    // ===== Comic Admin: Full quyền trừ vai trò, quyền, phân quyền, quản lý hệ thống =====
     const comicAdminRole = createdRoles.get('comic_admin');
     if (comicAdminRole) {
       const excludedPerms = [
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'shipping_method.manage',          // Quản lý Phương thức vận chuyển
       ];
       const comicAdminPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
       comicAdminRole.permissions = comicAdminPerms;
       const saved = await roleRepo.save(comicAdminRole);
-      this.logger.log(`✅ Assigned ${saved.permissions?.length ?? 0} permissions to comic_admin role (full trừ vai trò, quyền, phân quyền, hệ thống, payment, shipping)`);
+      this.logger.log(`✅ Assigned ${saved.permissions?.length ?? 0} permissions to comic_admin role (full trừ vai trò, quyền, phân quyền, hệ thống)`);
     }
 
     // ===== Comic Manager: Giống comic_admin nhưng bỏ quản lý tài khoản =====
@@ -200,7 +197,6 @@ export class SeedRoles {
         'role.manage',                    // Quản lý Vai trò
         'permission.manage',              // Quản lý Quyền
         'system.manage',                   // Quản lý Hệ thống
-        'shipping_method.manage',          // Quản lý Phương thức vận chuyển
         'user.manage',                     // Quản lý Người dùng (quản lý tài khoản)
       ];
       const comicManagerPerms = allPermissions.filter(p => !excludedPerms.includes(p.code));
