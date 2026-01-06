@@ -1,28 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Group } from '@/shared/entities/group.entity';
-import { Context } from '@/shared/entities/context.entity';
-import { UserGroup } from '@/shared/entities/user-group.entity';
-import { User } from '@/shared/entities/user.entity';
-import { Role } from '@/shared/entities/role.entity';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
-import { ListService } from '@/common/base/services/list.service';
 
 @Injectable()
-export class AdminGroupService extends ListService<Group> {
+export class AdminGroupService {
   constructor(
-    @InjectRepository(Group)
-    private readonly groupRepo: Repository<Group>,
-    @InjectRepository(Context)
-    private readonly contextRepo: Repository<Context>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    @InjectRepository(Role)
-    private readonly roleRepo: Repository<Role>,
+    private readonly prisma: PrismaService,
     private readonly rbacService: RbacService,
   ) {
-    super(groupRepo);
   }
 
   /**
@@ -50,7 +36,7 @@ export class AdminGroupService extends ListService<Group> {
       context_id: number;
     },
     requesterUserId: number,
-  ): Promise<Group> {
+  ): Promise<Prisma.GroupGetPayload<any>> {
     // Check system admin
     const isAdmin = await this.isSystemAdmin(requesterUserId);
     if (!isAdmin) {
@@ -58,15 +44,15 @@ export class AdminGroupService extends ListService<Group> {
     }
 
     // Check context exists
-    const context = await this.contextRepo.findOne({
-      where: { id: data.context_id, status: 'active' },
+    const context = await this.prisma.context.findFirst({
+      where: { id: BigInt(data.context_id), status: 'active' as any },
     });
     if (!context) {
       throw new NotFoundException(`Context with id ${data.context_id} not found`);
     }
 
     // Check code unique
-    const existing = await this.groupRepo.findOne({
+    const existing = await this.prisma.group.findFirst({
       where: { code: data.code },
     });
     if (existing) {
@@ -74,77 +60,92 @@ export class AdminGroupService extends ListService<Group> {
     }
 
     // Create group
-    const group = this.groupRepo.create({
-      type: data.type,
-      code: data.code,
-      name: data.name,
-      description: data.description,
-      metadata: data.metadata,
-      owner_id: data.owner_id || null,
-      context_id: data.context_id,
-      status: 'active',
+    const group = await this.prisma.group.create({
+      data: {
+        type: data.type,
+        code: data.code,
+        name: data.name,
+        description: data.description ?? null,
+        metadata: data.metadata ?? null,
+        owner_id: data.owner_id ? BigInt(data.owner_id) : null,
+        context_id: BigInt(data.context_id),
+        status: 'active' as any,
+      },
     });
-    const savedGroup = await this.groupRepo.save(group);
 
     // Nếu có owner, tự động thêm owner vào user_groups và gán role 'admin'
-    if (savedGroup.owner_id) {
+    if (group.owner_id) {
       // Thêm owner vào user_groups
-      const userGroupRepo = this.groupRepo.manager.getRepository(UserGroup);
-      const existingUserGroup = await userGroupRepo.findOne({
-        where: { user_id: savedGroup.owner_id, group_id: savedGroup.id },
+      const existingUserGroup = await this.prisma.userGroup.findUnique({
+        where: {
+          user_id_group_id: {
+            user_id: group.owner_id,
+            group_id: group.id,
+          },
+        },
       });
 
       if (!existingUserGroup) {
-        await userGroupRepo.save({
-          user_id: savedGroup.owner_id,
-          group_id: savedGroup.id,
-          joined_at: new Date(),
+        await this.prisma.userGroup.create({
+          data: {
+            user_id: group.owner_id,
+            group_id: group.id,
+            joined_at: new Date(),
+          },
         });
       }
 
       // Gán role admin cho owner
-      const ownerRole = await this.roleRepo.findOne({
-        where: { code: 'admin' } as any,
+      const ownerRole = await this.prisma.role.findFirst({
+        where: { code: 'admin' },
       });
       if (ownerRole) {
-        await this.rbacService.assignRoleToUser(savedGroup.owner_id, ownerRole.id, savedGroup.id);
+        await this.rbacService.assignRoleToUser(Number(group.owner_id), Number(ownerRole.id), Number(group.id));
       }
     }
 
-    return savedGroup;
+    return group as any;
   }
 
   /**
    * Lấy group theo ID
    */
-  async findById(id: number): Promise<Group | null> {
-    return this.groupRepo.findOne({
-      where: { id, status: 'active' },
-      relations: ['context'],
-    });
+  async findById(id: number): Promise<Prisma.GroupGetPayload<{ include: { context: true } }> | null> {
+    return this.prisma.group.findFirst({
+      where: { id: BigInt(id), status: 'active' as any },
+      include: { context: true },
+    }) as any;
   }
 
   /**
    * Lấy group theo code
    */
-  async findByCode(code: string): Promise<Group | null> {
-    return this.groupRepo.findOne({
-      where: { code, status: 'active' },
-      relations: ['context'],
-    });
+  async findByCode(code: string): Promise<Prisma.GroupGetPayload<{ include: { context: true } }> | null> {
+    return this.prisma.group.findFirst({
+      where: { code, status: 'active' as any },
+      include: { context: true },
+    }) as any;
   }
 
   /**
    * Update group (chỉ system admin)
    */
-  async updateGroup(id: number, data: Partial<{ name: string; description: string; metadata: any }>): Promise<Group> {
+  async updateGroup(id: number, data: Partial<{ name: string; description: string; metadata: any }>): Promise<Prisma.GroupGetPayload<any>> {
     const group = await this.findById(id);
     if (!group) {
       throw new NotFoundException('Group not found');
     }
 
-    Object.assign(group, data);
-    return this.groupRepo.save(group);
+    const updated = await this.prisma.group.update({
+      where: { id: BigInt(id) },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.metadata !== undefined ? { metadata: data.metadata } : {}),
+      },
+    });
+
+    return updated as any;
   }
 
   /**
@@ -156,8 +157,11 @@ export class AdminGroupService extends ListService<Group> {
       throw new NotFoundException('Group not found');
     }
 
-    // Soft delete
-    await this.groupRepo.softDelete(id);
+    // Soft delete: update deleted_at
+    await this.prisma.group.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: new Date() },
+    });
   }
 }
 

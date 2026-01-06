@@ -1,20 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { Request } from 'express';
-import { Context } from '@/shared/entities/context.entity';
-import { CrudService } from '@/common/base/services/crud.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 
 @Injectable()
-export class ContextService extends CrudService<Context> {
+export class ContextService {
   constructor(
-    @InjectRepository(Context)
-    private readonly contextRepo: Repository<Context>,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => RbacService))
     private readonly rbacService: RbacService,
   ) {
-    super(contextRepo);
   }
 
   /**
@@ -33,7 +29,7 @@ export class ContextService extends CrudService<Context> {
    * - Query: ?context_id=1
    * Lưu ý: Phải có context_id trong header hoặc query, không có default
    */
-  async resolveContext(req: Request): Promise<Context> {
+  async resolveContext(req: Request): Promise<Prisma.ContextGetPayload<any>> {
     const contextId =
       req.headers['x-context-id'] ||
       (req.query as any).context_id;
@@ -42,8 +38,8 @@ export class ContextService extends CrudService<Context> {
       throw new NotFoundException('Context ID is required in header (X-Context-Id) or query (?context_id)');
     }
 
-    const context = await this.contextRepo.findOne({
-      where: { id: Number(contextId), status: 'active' },
+    const context = await this.prisma.context.findFirst({
+      where: { id: BigInt(contextId as any), status: 'active' as any },
     });
 
     if (!context) {
@@ -56,15 +52,35 @@ export class ContextService extends CrudService<Context> {
   /**
    * ✅ MỚI: Lấy tất cả contexts mà user có quyền truy cập (thông qua groups)
    */
-  async getUserContexts(userId: number): Promise<Context[]> {
-    return this.contextRepo
-      .createQueryBuilder('context')
-      .innerJoin('context.groups', 'group')
-      .innerJoin('group.user_groups', 'ug', 'ug.user_id = :userId', { userId })
-      .where('context.status = :status', { status: 'active' })
-      .andWhere('group.status = :groupStatus', { groupStatus: 'active' })
-      .distinct(true)
-      .getMany();
+  async getUserContexts(userId: number): Promise<Prisma.ContextGetPayload<any>[]> {
+    const userGroups = await this.prisma.userGroup.findMany({
+      where: { user_id: BigInt(userId) },
+      select: { group_id: true },
+    });
+
+    if (!userGroups.length) return [];
+
+    const groupIds = Array.from(new Set(userGroups.map((ug) => ug.group_id)));
+
+    const groups = await this.prisma.group.findMany({
+      where: {
+        id: { in: groupIds },
+        status: 'active' as any,
+      },
+      select: { context_id: true },
+    });
+
+    const contextIds = Array.from(new Set(groups.map((g) => g.context_id)));
+    if (!contextIds.length) return [];
+
+    const contexts = await this.prisma.context.findMany({
+      where: {
+        id: { in: contextIds },
+        status: 'active' as any,
+      },
+    });
+
+    return contexts as any;
   }
 
   /**
@@ -72,19 +88,20 @@ export class ContextService extends CrudService<Context> {
    * - System context (id=1) luôn được phép cho mọi user đã authenticated
    * - Các contexts khác chỉ được phép nếu user có role trong đó
    */
-  async getUserContextsForTransfer(userId: number): Promise<Context[]> {
+  async getUserContextsForTransfer(userId: number): Promise<Prisma.ContextGetPayload<any>[]> {
     // Lấy system context (id=1) - luôn được phép
-    const systemContext = await this.contextRepo
-      .createQueryBuilder('context')
-      .where('context.id = :id', { id: 1 })
-      .andWhere('context.status = :status', { status: 'active' })
-      .getOne();
+    const systemContext = await this.prisma.context.findFirst({
+      where: {
+        id: BigInt(1),
+        status: 'active' as any,
+      },
+    });
 
     // Lấy các contexts mà user có quyền truy cập (có role)
     const userContexts = await this.getUserContexts(userId);
 
     // Gộp lại và loại bỏ trùng lặp (nếu system context đã có trong userContexts)
-    const allContexts: Context[] = [];
+    const allContexts: Prisma.ContextGetPayload<any>[] = [];
     if (systemContext) {
       allContexts.push(systemContext);
     }
@@ -101,49 +118,50 @@ export class ContextService extends CrudService<Context> {
   /**
    * Tạo system context mặc định (chạy 1 lần khi setup)
    */
-  async createSystemContext(): Promise<Context> {
-    const exists = await this.contextRepo
-      .createQueryBuilder('context')
-      .where('context.type = :type', { type: 'system' })
-      .andWhere('context.ref_id IS NULL')
-      .getOne();
+  async createSystemContext(): Promise<Prisma.ContextGetPayload<any>> {
+    const exists = await this.prisma.context.findFirst({
+      where: {
+        type: 'system',
+        ref_id: null,
+      },
+    });
 
     if (exists) return exists;
 
-    const context = this.contextRepo.create({
-      type: 'system',
-      ref_id: null,
-      name: 'System',
-      status: 'active',
+    const context = await this.prisma.context.create({
+      data: {
+        type: 'system',
+        ref_id: null,
+        name: 'System',
+        code: 'system',
+        status: 'active' as any,
+      },
     });
 
-    return this.contextRepo.save(context);
+    return context as any;
   }
 
   /**
    * Lấy context theo ID
    */
-  async findById(id: number): Promise<Context | null> {
-    return this.contextRepo.findOne({
-      where: { id, status: 'active' },
-    });
+  async findById(id: number): Promise<Prisma.ContextGetPayload<any> | null> {
+    return this.prisma.context.findFirst({
+      where: { id: BigInt(id), status: 'active' as any },
+    }) as any;
   }
 
   /**
    * Lấy context theo type và ref_id
    */
-  async findByTypeAndRefId(type: string, refId: number | null): Promise<Context | null> {
-    const queryBuilder = this.contextRepo
-      .createQueryBuilder('context')
-      .where('context.type = :type', { type });
-
-    if (refId === null) {
-      queryBuilder.andWhere('context.ref_id IS NULL');
-    } else {
-      queryBuilder.andWhere('context.ref_id = :refId', { refId });
-    }
-
-    return queryBuilder.getOne();
+  async findByTypeAndRefId(type: string, refId: number | null): Promise<Prisma.ContextGetPayload<any> | null> {
+    return this.prisma.context.findFirst({
+      where: {
+        type,
+        ...(refId === null
+          ? { ref_id: null }
+          : { ref_id: BigInt(refId) }),
+      },
+    }) as any;
   }
 
   /**
@@ -158,7 +176,7 @@ export class ContextService extends CrudService<Context> {
       status?: string;
     },
     requesterUserId: number,
-  ): Promise<Context> {
+  ): Promise<Prisma.ContextGetPayload<any>> {
     // Check system admin
     const isAdmin = await this.isSystemAdmin(requesterUserId);
     if (!isAdmin) {
@@ -175,22 +193,24 @@ export class ContextService extends CrudService<Context> {
     const code = data.code || `${data.type}-${data.ref_id ?? 'system'}`;
 
     // Check code unique
-    const existingByCode = await this.contextRepo.findOne({
-      where: { code } as any,
+    const existingByCode = await this.prisma.context.findFirst({
+      where: { code },
     });
     if (existingByCode) {
       throw new BadRequestException(`Context with code "${code}" already exists`);
     }
 
-    const context = this.contextRepo.create({
-      type: data.type,
-      ref_id: data.ref_id ?? null,
-      name: data.name,
-      code,
-      status: data.status || 'active',
+    const context = await this.prisma.context.create({
+      data: {
+        type: data.type,
+        ref_id: data.ref_id ?? null,
+        name: data.name,
+        code,
+        status: (data.status || 'active') as any,
+      },
     });
 
-    return this.contextRepo.save(context);
+    return context as any;
   }
 
   /**
@@ -200,7 +220,7 @@ export class ContextService extends CrudService<Context> {
     id: number,
     data: Partial<{ name: string; code: string; status: string }>,
     requesterUserId: number,
-  ): Promise<Context> {
+  ): Promise<Prisma.ContextGetPayload<any>> {
     // Check system admin
     const isAdmin = await this.isSystemAdmin(requesterUserId);
     if (!isAdmin) {
@@ -219,16 +239,23 @@ export class ContextService extends CrudService<Context> {
 
     // Check code unique nếu có thay đổi code
     if (data.code && data.code !== context.code) {
-      const existing = await this.contextRepo.findOne({
-        where: { code: data.code } as any,
+      const existing = await this.prisma.context.findFirst({
+        where: { code: data.code },
       });
       if (existing) {
         throw new BadRequestException(`Context with code "${data.code}" already exists`);
       }
     }
 
-    Object.assign(context, data);
-    return this.contextRepo.save(context);
+    const updated = await this.prisma.context.update({
+      where: { id: BigInt(id) },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.code !== undefined ? { code: data.code } : {}),
+        ...(data.status !== undefined ? { status: data.status as any } : {}),
+      },
+    });
+    return updated as any;
   }
 
   /**
@@ -246,16 +273,21 @@ export class ContextService extends CrudService<Context> {
     }
 
     // Check xem có groups nào đang dùng context này không
-    const groupsCount = await this.contextRepo.manager
-      .getRepository('Group')
-      .count({ where: { context_id: id } } as any);
+    const groupsCount = await this.prisma.group.count({
+      where: { context_id: BigInt(id) },
+    });
 
     if (groupsCount > 0) {
       throw new BadRequestException(`Cannot delete context: ${groupsCount} group(s) are using this context`);
     }
 
-    // Soft delete
-    await this.contextRepo.softDelete(id);
+    // Soft delete: update deleted_at
+    await this.prisma.context.update({
+      where: { id: BigInt(id) },
+      data: {
+        deleted_at: new Date(),
+      },
+    });
   }
 }
 

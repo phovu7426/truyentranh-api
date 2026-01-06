@@ -1,39 +1,41 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
-import { Contact } from '@/shared/entities/contact.entity';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { ContactStatus } from '@/shared/enums/contact-status.enum';
-import { CrudService } from '@/common/base/services/crud.service';
-import { ResponseRef } from '@/common/base/utils/response-ref.helper';
 
 @Injectable()
-export class ContactService extends CrudService<Contact> {
+export class ContactService {
   constructor(
-    @InjectRepository(Contact)
-    protected readonly contactRepository: Repository<Contact>,
-  ) {
-    super(contactRepository);
-  }
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Gửi phản hồi cho contact
    */
   async replyToContact(id: number, reply: string, repliedBy?: number) {
-    return this.update(id, {
-      reply,
-      status: ContactStatus.Replied,
-      replied_at: new Date(),
-      replied_by: repliedBy,
-    } as DeepPartial<Contact>);
+    return this.prisma.contact.update({
+      where: { id: BigInt(id) },
+      data: {
+        reply,
+        status: ContactStatus.Replied as any,
+        replied_at: new Date(),
+        replied_by: repliedBy ? BigInt(repliedBy) : null,
+      },
+    });
   }
 
   /**
    * Đánh dấu contact đã đọc
    */
   async markAsRead(id: number) {
-    const contact = await this.getOne({ id } as any);
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: BigInt(id) },
+    });
     if (contact && contact.status === ContactStatus.Pending) {
-      return this.update(id, { status: ContactStatus.Read } as DeepPartial<Contact>);
+      return this.prisma.contact.update({
+        where: { id: BigInt(id) },
+        data: { status: ContactStatus.Read as any },
+      });
     }
     return contact;
   }
@@ -42,7 +44,10 @@ export class ContactService extends CrudService<Contact> {
    * Đóng contact
    */
   async closeContact(id: number) {
-    return this.update(id, { status: ContactStatus.Closed } as DeepPartial<Contact>);
+    return this.prisma.contact.update({
+      where: { id: BigInt(id) },
+      data: { status: ContactStatus.Closed as any },
+    });
   }
 }
 

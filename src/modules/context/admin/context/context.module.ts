@@ -1,14 +1,11 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Context } from '@/shared/entities/context.entity';
+import { Module, forwardRef } from '@nestjs/common';
 import { AdminContextController } from './controllers/context.controller';
 import { AdminContextService } from './services/context.service';
 import { RbacModule } from '@/modules/rbac/rbac.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Context]),
-    RbacModule,
+    forwardRef(() => RbacModule),
   ],
   controllers: [AdminContextController],
   providers: [AdminContextService],

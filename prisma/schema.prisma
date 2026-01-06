@@ -521,6 +521,29 @@ model UserRoleAssignment {
   @@unique([user_id, role_id, group_id], map: "idx_user_role_group_unique")
 }
 
+model Contact {
+  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  name        String        @db.VarChar(255)
+  email       String        @db.VarChar(255)
+  phone       String?       @db.VarChar(20)
+  subject     String?       @db.VarChar(255)
+  message     String        @db.Text
+  status      String        @default("Pending") @db.VarChar(50)
+  reply       String?       @db.Text
+  replied_at  DateTime?     @db.DateTime(0)
+  replied_by  BigInt?       @db.UnsignedBigInt
+  created_at  DateTime      @default(now()) @db.DateTime(0)
+  updated_at  DateTime      @updatedAt @db.DateTime(0)
+  deleted_at  DateTime?     @db.DateTime(0)
+
+  @@map("contacts")
+  @@index([email], map: "idx_contacts_email")
+  @@index([status], map: "idx_contacts_status")
+  @@index([created_at], map: "idx_contacts_created_at")
+  @@index([deleted_at], map: "idx_contacts_deleted_at")
+  @@index([status, created_at], map: "idx_contacts_status_created")
+}
+
 model PostCategory {
   id               BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
   name             String         @db.VarChar(255)
