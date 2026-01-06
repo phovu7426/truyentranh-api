@@ -14,6 +14,7 @@ import { ModuleRef } from '@nestjs/core';
 
 // Infrastructure modules
 import { DatabaseModule } from '@/core/database/database.module';
+import { PrismaModule } from '@/core/database/prisma/prisma.module';
 import { RedisUtil } from '@/core/utils/redis.util';
 import { TokenBlacklistService } from '@/core/security/token-blacklist.service';
 import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
@@ -67,6 +68,9 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
         // DB_TIMEOUT: Joi.number().default(60000),
         // DB_RECONNECT: Joi.boolean().truthy('true').falsy('false').default(true),
 
+        // Prisma
+        DATABASE_URL: Joi.string().uri({ scheme: ['mysql', 'mysqls'] }).optional(),
+
         // Mail (optional but warn if partially provided)
         MAIL_HOST: Joi.string().hostname().default('localhost'),
         MAIL_PORT: Joi.number().default(587),
@@ -97,9 +101,10 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
       }),
     }),
     DatabaseModule,
+    PrismaModule,
   ],
   providers: [RedisUtil, TokenBlacklistService, AttemptLimiterService],
-  exports: [ConfigModule, DatabaseModule, RedisUtil, TokenBlacklistService, AttemptLimiterService],
+  exports: [ConfigModule, DatabaseModule, PrismaModule, RedisUtil, TokenBlacklistService, AttemptLimiterService],
 })
 export class CoreModule {
   constructor(private readonly configService: ConfigService) {
