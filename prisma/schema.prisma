@@ -19,6 +19,16 @@ enum ChapterStatus {
   published
 }
 
+enum CommentStatus {
+  visible
+  hidden
+}
+
+enum UserStatus {
+  active
+  pending
+  inactive
+}
 model Comic {
   id               BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
   slug             String        @unique @db.VarChar(255)
@@ -36,6 +46,9 @@ model Comic {
   stats            ComicStats?
   chapters         Chapter[]
   categoryLinks    ComicCategoryOnComic[]
+  comments         Comment[]
+  reviews          ComicReview[]
+  views            ComicView[]
 
   @@map("comics")
   @@index([slug], map: "idx_slug")
@@ -79,6 +92,9 @@ model Chapter {
   deleted_at      DateTime?     @db.DateTime(0)
 
   comic           Comic         @relation(fields: [comic_id], references: [id], onDelete: Cascade)
+  pages           ChapterPage[]
+  views           ComicView[]
+  comments        Comment[]
 
   @@map("chapters")
   @@index([comic_id], map: "idx_comic_id")
@@ -123,5 +139,130 @@ model ComicCategoryOnComic {
 
   @@id([comic_id, comic_category_id])
   @@map("comic_category")
+}
+
+model Comment {
+  id              BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt         @db.UnsignedBigInt
+  comic_id        BigInt         @db.UnsignedBigInt
+  chapter_id      BigInt?        @db.UnsignedBigInt
+  parent_id       BigInt?        @db.UnsignedBigInt
+  content         String         @db.Text
+  status          CommentStatus  @default(visible)
+  created_user_id BigInt?        @db.UnsignedBigInt
+  updated_user_id BigInt?        @db.UnsignedBigInt
+  created_at      DateTime       @default(now()) @db.DateTime(0)
+  updated_at      DateTime       @updatedAt @db.DateTime(0)
+  deleted_at      DateTime?      @db.DateTime(0)
+
+  comic           Comic          @relation(fields: [comic_id], references: [id], onDelete: Cascade)
+  chapter         Chapter?       @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
+  user            User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  parent          Comment?       @relation("CommentToReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies         Comment[]      @relation("CommentToReplies")
+
+  @@map("comments")
+  @@index([user_id], map: "idx_user_id")
+  @@index([comic_id], map: "idx_comic_id")
+  @@index([chapter_id], map: "idx_chapter_id")
+  @@index([parent_id], map: "idx_parent_id")
+  @@index([status], map: "idx_status")
+  @@index([created_at], map: "idx_created_at")
+  @@index([comic_id, created_at], map: "idx_comic_created")
+  @@index([chapter_id, created_at], map: "idx_chapter_created")
+  @@index([created_user_id], map: "idx_created_user_id")
+  @@index([updated_user_id], map: "idx_updated_user_id")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model ComicReview {
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt    @db.UnsignedBigInt
+  comic_id        BigInt    @db.UnsignedBigInt
+  rating          Int       @db.UnsignedTinyInt
+  content         String?   @db.Text
+  created_user_id BigInt?   @db.UnsignedBigInt
+  updated_user_id BigInt?   @db.UnsignedBigInt
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime  @updatedAt @db.DateTime(0)
+  deleted_at      DateTime? @db.DateTime(0)
+
+  comic           Comic     @relation(fields: [comic_id], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("comic_reviews")
+  @@index([user_id], map: "idx_user_id")
+  @@index([comic_id], map: "idx_comic_id")
+  @@unique([user_id, comic_id], map: "idx_user_comic")
+  @@index([rating], map: "idx_rating")
+  @@index([created_at], map: "idx_created_at")
+  @@index([created_user_id], map: "idx_created_user_id")
+  @@index([updated_user_id], map: "idx_updated_user_id")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model ChapterPage {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  chapter_id  BigInt   @db.UnsignedBigInt
+  page_number Int
+  image_url   String   @db.VarChar(500)
+  width       Int?
+  height      Int?
+  file_size   BigInt?  @db.UnsignedBigInt
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  chapter     Chapter  @relation(fields: [chapter_id], references: [id], onDelete: Cascade)
+
+  @@map("chapter_pages")
+  @@index([chapter_id], map: "idx_chapter_id")
+  @@index([chapter_id, page_number], map: "idx_chapter_page")
+  @@unique([chapter_id, page_number], map: "idx_chapter_page_unique")
+}
+
+model ComicView {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  comic_id    BigInt    @db.UnsignedBigInt
+  chapter_id  BigInt?   @db.UnsignedBigInt
+  user_id     BigInt?   @db.UnsignedBigInt
+  ip          String?   @db.VarChar(45)
+  user_agent  String?   @db.VarChar(500)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+
+  comic       Comic     @relation(fields: [comic_id], references: [id], onDelete: Cascade)
+  chapter     Chapter?  @relation(fields: [chapter_id], references: [id], onDelete: SetNull)
+  user        User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("comic_views")
+  @@index([comic_id], map: "idx_comic_id")
+  @@index([chapter_id], map: "idx_chapter_id")
+  @@index([user_id], map: "idx_user_id")
+  @@index([created_at], map: "idx_created_at")
+  @@index([comic_id, created_at], map: "idx_comic_created")
+  @@index([chapter_id, created_at], map: "idx_chapter_created")
+}
+
+model User {
+  id               BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  username         String?    @unique @db.VarChar(50)
+  email            String?    @unique @db.VarChar(255)
+  phone            String?    @unique @db.VarChar(20)
+  password         String?    @db.VarChar(255)
+  status           UserStatus @default(active)
+  email_verified_at DateTime? @db.DateTime(0)
+  phone_verified_at DateTime? @db.DateTime(0)
+  last_login_at    DateTime?  @db.DateTime(0)
+  remember_token   String?    @db.VarChar(100)
+  created_user_id  BigInt?    @db.UnsignedBigInt
+  updated_user_id  BigInt?    @db.UnsignedBigInt
+  created_at       DateTime   @default(now()) @db.DateTime(0)
+  updated_at       DateTime   @updatedAt @db.DateTime(0)
+  deleted_at       DateTime?  @db.DateTime(0)
+
+  comments         Comment[]
+  reviews          ComicReview[]
+  views            ComicView[]
+
+  @@map("users")
+  @@index([deleted_at], map: "idx_deleted_at")
 }
 

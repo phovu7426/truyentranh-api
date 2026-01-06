@@ -1,21 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Chapter } from '@/shared/entities/chapter.entity';
-import { ChapterPage } from '@/shared/entities/chapter-page.entity';
-import { ListService } from '@/common/base/services/list.service';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
 import { PUBLIC_CHAPTER_STATUSES } from '@/shared/enums';
 
-@Injectable()
-export class PublicChaptersService extends ListService<Chapter> {
-  private get pageRepo(): Repository<ChapterPage> {
-    return this.repository.manager.getRepository(ChapterPage);
-  }
+type ChapterBag = PrismaListBag & {
+  Model: any;
+  Where: any;
+  Select: any;
+  Include: any;
+  OrderBy: any;
+};
 
-  constructor(
-    @InjectRepository(Chapter) protected readonly repo: Repository<Chapter>,
-  ) {
-    super(repo);
+@Injectable()
+export class PublicChaptersService extends PrismaListService<ChapterBag> {
+  constructor(private readonly prisma: PrismaService) {
+    super(prisma.chapter, ['id', 'created_at', 'chapter_index', 'view_count'], 'created_at:DESC');
   }
 
   /**
@@ -34,25 +33,31 @@ export class PublicChaptersService extends ListService<Chapter> {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      relations: ['comic', 'pages'],
-    } as any;
+      include: {
+        comic: true,
+        pages: {
+          orderBy: { page_number: 'asc' },
+        },
+      },
+    };
   }
 
   /**
    * Lấy danh sách pages của chapter
    */
   async getPages(chapterId: number) {
-    const chapter = await this.repo.findOne({
-      where: { id: chapterId, status: PUBLIC_CHAPTER_STATUSES[0] } as any,
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: BigInt(chapterId), status: PUBLIC_CHAPTER_STATUSES[0] as any },
+      select: { id: true },
     });
 
     if (!chapter) {
       throw new NotFoundException('Chapter not found');
     }
 
-    return this.pageRepo.find({
-      where: { chapter_id: chapterId },
-      order: { page_number: 'ASC' },
+    return this.prisma.chapterPage.findMany({
+      where: { chapter_id: BigInt(chapterId) },
+      orderBy: { page_number: 'asc' },
     });
   }
 
@@ -60,21 +65,22 @@ export class PublicChaptersService extends ListService<Chapter> {
    * Lấy chapter tiếp theo
    */
   async getNext(chapterId: number) {
-    const chapter = await this.repo.findOne({
-      where: { id: chapterId } as any,
-      relations: ['comic'],
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: BigInt(chapterId) },
+      select: { comic_id: true, chapter_index: true },
     });
 
     if (!chapter) {
       throw new NotFoundException('Chapter not found');
     }
 
-    const next = await this.repo.findOne({
+    const next = await this.prisma.chapter.findFirst({
       where: {
         comic_id: chapter.comic_id,
         chapter_index: chapter.chapter_index + 1,
-        status: PUBLIC_CHAPTER_STATUSES[0],
-      } as any,
+        status: PUBLIC_CHAPTER_STATUSES[0] as any,
+      },
+      orderBy: { id: 'asc' },
     });
 
     return next || null;
@@ -84,21 +90,22 @@ export class PublicChaptersService extends ListService<Chapter> {
    * Lấy chapter trước đó
    */
   async getPrev(chapterId: number) {
-    const chapter = await this.repo.findOne({
-      where: { id: chapterId } as any,
-      relations: ['comic'],
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: BigInt(chapterId) },
+      select: { comic_id: true, chapter_index: true },
     });
 
     if (!chapter) {
       throw new NotFoundException('Chapter not found');
     }
 
-    const prev = await this.repo.findOne({
+    const prev = await this.prisma.chapter.findFirst({
       where: {
         comic_id: chapter.comic_id,
         chapter_index: chapter.chapter_index - 1,
-        status: PUBLIC_CHAPTER_STATUSES[0],
-      } as any,
+        status: PUBLIC_CHAPTER_STATUSES[0] as any,
+      },
+      orderBy: { id: 'desc' },
     });
 
     return prev || null;

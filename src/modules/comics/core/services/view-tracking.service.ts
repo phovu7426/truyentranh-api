@@ -1,17 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ComicView } from '@/shared/entities/comic-view.entity';
-import { ComicStats } from '@/shared/entities/comic-stats.entity';
-import { Chapter } from '@/shared/entities/chapter.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 
 @Injectable()
 export class ViewTrackingService {
-  constructor(
-    @InjectRepository(ComicView) private readonly viewRepo: Repository<ComicView>,
-    @InjectRepository(ComicStats) private readonly statsRepo: Repository<ComicStats>,
-    @InjectRepository(Chapter) private readonly chapterRepo: Repository<Chapter>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Track view cho comic/chapter
@@ -27,14 +19,14 @@ export class ViewTrackingService {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
     // Kiểm tra duplicate view
-    const existingView = await this.viewRepo.findOne({
+    const existingView = await this.prisma.comicView.findFirst({
       where: {
-        comic_id: data.comic_id,
-        chapter_id: data.chapter_id || null,
-        user_id: data.user_id || null,
+        comic_id: BigInt(data.comic_id),
+        chapter_id: data.chapter_id ? BigInt(data.chapter_id) : null,
+        user_id: data.user_id ? BigInt(data.user_id) : null,
         ip: data.ip || null,
-        created_at: { $gte: oneHourAgo } as any,
-      } as any,
+        created_at: { gte: oneHourAgo },
+      },
     });
 
     if (existingView) {
@@ -42,15 +34,15 @@ export class ViewTrackingService {
     }
 
     // Tạo view record
-    const view = this.viewRepo.create({
-      comic_id: data.comic_id,
-      chapter_id: data.chapter_id || null,
-      user_id: data.user_id || null,
-      ip: data.ip || null,
-      user_agent: data.user_agent || null,
+    await this.prisma.comicView.create({
+      data: {
+        comic_id: BigInt(data.comic_id),
+        chapter_id: data.chapter_id ? BigInt(data.chapter_id) : null,
+        user_id: data.user_id ? BigInt(data.user_id) : null,
+        ip: data.ip || null,
+        user_agent: data.user_agent || null,
+      },
     });
-
-    await this.viewRepo.save(view);
 
     // Update stats (async, có thể dùng queue)
     await this.updateStats(data.comic_id, data.chapter_id);
@@ -63,28 +55,26 @@ export class ViewTrackingService {
    */
   private async updateStats(comicId: number, chapterId?: number) {
     // Update comic view count
-    const viewCount = await this.viewRepo.count({
-      where: { comic_id: comicId } as any,
+    const viewCount = await this.prisma.comicView.count({
+      where: { comic_id: BigInt(comicId) },
     });
 
-    let stats = await this.statsRepo.findOne({ where: { comic_id: comicId } });
-    if (!stats) {
-      stats = this.statsRepo.create({ comic_id: comicId });
-    }
-    stats.view_count = viewCount;
-    await this.statsRepo.save(stats);
+    await this.prisma.comicStats.upsert({
+      where: { comic_id: BigInt(comicId) },
+      create: { comic_id: BigInt(comicId), view_count: BigInt(viewCount) },
+      update: { view_count: BigInt(viewCount) },
+    });
 
     // Update chapter view count nếu có
     if (chapterId) {
-      const chapterViewCount = await this.viewRepo.count({
-        where: { chapter_id: chapterId } as any,
+      const chapterViewCount = await this.prisma.comicView.count({
+        where: { chapter_id: BigInt(chapterId) },
       });
 
-      const chapter = await this.chapterRepo.findOne({ where: { id: chapterId } });
-      if (chapter) {
-        chapter.view_count = chapterViewCount;
-        await this.chapterRepo.save(chapter);
-      }
+      await this.prisma.chapter.update({
+        where: { id: BigInt(chapterId) },
+        data: { view_count: BigInt(chapterViewCount) },
+      });
     }
   }
 }
