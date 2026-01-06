@@ -1,44 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { EmailConfig } from '@/shared/entities/email-config.entity';
-import { CrudService } from '@/common/base/services/crud.service';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { UpdateEmailConfigDto } from '../dtos/update-email-config.dto';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 
 @Injectable()
-export class EmailConfigService extends CrudService<EmailConfig> {
-  constructor(
-    @InjectRepository(EmailConfig)
-    protected readonly emailConfigRepository: Repository<EmailConfig>,
-  ) {
-    super(emailConfigRepository);
-  }
+export class EmailConfigService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Lấy cấu hình email (chỉ có 1 record duy nhất)
-   * Nếu chưa có thì tạo mặc định
-   * Không trả về password (hoặc trả về masked)
-   */
-  async getConfig(): Promise<Omit<EmailConfig, 'smtp_password'> & { smtp_password?: string }> {
-    let config = await this.emailConfigRepository.findOne({
-      where: {} as any,
-      order: { id: 'ASC' },
+  async getConfig(): Promise<any> {
+    const config = await this.prisma.emailConfig.findFirst({
+      orderBy: { id: 'asc' },
     });
 
-    if (!config) {
-      // Tạo config mặc định
-      const created = await this.create({
-        smtp_host: 'smtp.gmail.com',
-        smtp_port: 587,
-        smtp_secure: true,
-        smtp_username: '',
-        smtp_password: '',
-        from_email: '',
-        from_name: '',
-      } as DeepPartial<EmailConfig>);
-      config = created as EmailConfig;
-    }
+    if (!config) return null;
 
     // Trả về config nhưng mask password
     const { smtp_password, ...rest } = config;
@@ -54,13 +29,12 @@ export class EmailConfigService extends CrudService<EmailConfig> {
    * Password sẽ được hash trước khi lưu
    * Nếu không gửi password thì giữ nguyên password cũ
    */
-  async updateConfig(dto: UpdateEmailConfigDto, updatedBy?: number): Promise<Omit<EmailConfig, 'smtp_password'> & { smtp_password?: string }> {
-    const existing = await this.emailConfigRepository.findOne({
-      where: {} as any,
-      order: { id: 'ASC' },
+  async updateConfig(dto: UpdateEmailConfigDto, updatedBy?: number): Promise<any> {
+    const existing = await this.prisma.emailConfig.findFirst({
+      orderBy: { id: 'asc' },
     });
 
-    const updateData: DeepPartial<EmailConfig> = { ...dto };
+    const updateData: any = { ...dto };
 
     // Nếu có password mới, hash nó
     if (dto.smtp_password) {
@@ -74,17 +48,21 @@ export class EmailConfigService extends CrudService<EmailConfig> {
       // Tạo mới với giá trị mặc định + dto
       // Nếu không có password trong dto, tạo password mặc định (rỗng, sẽ được hash)
       const defaultPassword = dto.smtp_password ? updateData.smtp_password : await bcrypt.hash('', 10);
-      const created = await this.create({
-        smtp_host: dto.smtp_host || 'smtp.gmail.com',
-        smtp_port: dto.smtp_port || 587,
-        smtp_secure: dto.smtp_secure !== undefined ? dto.smtp_secure : true,
-        smtp_username: dto.smtp_username || '',
-        smtp_password: defaultPassword,
-        from_email: dto.from_email || '',
-        from_name: dto.from_name || '',
-        reply_to_email: dto.reply_to_email,
-      } as DeepPartial<EmailConfig>, updatedBy);
-      const newConfig = created as EmailConfig;
+      const created = await this.prisma.emailConfig.create({
+        data: {
+          smtp_host: dto.smtp_host || 'smtp.gmail.com',
+          smtp_port: dto.smtp_port || 587,
+          smtp_secure: dto.smtp_secure !== undefined ? dto.smtp_secure : true,
+          smtp_username: dto.smtp_username || '',
+          smtp_password: defaultPassword,
+          from_email: dto.from_email || '',
+          from_name: dto.from_name || '',
+          reply_to_email: dto.reply_to_email,
+          created_user_id: updatedBy ? BigInt(updatedBy) : null,
+          updated_user_id: updatedBy ? BigInt(updatedBy) : null,
+        },
+      });
+      const newConfig = created;
 
       const { smtp_password, ...rest } = newConfig;
       return {
@@ -94,11 +72,16 @@ export class EmailConfigService extends CrudService<EmailConfig> {
     }
 
     // Update record hiện có
-    const updated = await this.update(existing.id, updateData, updatedBy);
-    const updatedConfig = updated as EmailConfig;
+    const updatedConfig = await this.prisma.emailConfig.update({
+      where: { id: existing.id },
+      data: {
+        ...updateData,
+        updated_user_id: updatedBy ? BigInt(updatedBy) : existing.updated_user_id,
+      },
+    });
     const { smtp_password, ...rest } = updatedConfig;
     return {
-      ...rest,
+      ...toPlain(rest),
       smtp_password: '******',
     };
   }

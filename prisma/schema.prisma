@@ -141,6 +141,60 @@ model ComicCategoryOnComic {
   @@map("comic_category")
 }
 
+model GeneralConfig {
+  id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  site_name          String    @db.VarChar(255)
+  site_description   String?   @db.Text
+  site_logo          String?   @db.VarChar(500)
+  site_favicon       String?   @db.VarChar(500)
+  site_email         String?   @db.VarChar(255)
+  site_phone         String?   @db.VarChar(20)
+  site_address       String?   @db.Text
+  site_copyright     String?   @db.VarChar(255)
+  timezone           String    @db.VarChar(50)  @default("Asia/Ho_Chi_Minh")
+  locale             String    @db.VarChar(10)  @default("vi")
+  currency           String    @db.VarChar(10)  @default("VND")
+  contact_channels   Json?
+  meta_title         String?   @db.VarChar(255)
+  meta_keywords      String?   @db.Text
+  og_title           String?   @db.VarChar(255)
+  og_description     String?   @db.Text
+  og_image           String?   @db.VarChar(500)
+  canonical_url      String?   @db.VarChar(500)
+  google_analytics_id String?  @db.VarChar(50)
+  google_search_console String? @db.VarChar(255)
+  facebook_pixel_id  String?   @db.VarChar(50)
+  twitter_site       String?   @db.VarChar(50)
+  created_user_id    BigInt?   @db.UnsignedBigInt
+  updated_user_id    BigInt?   @db.UnsignedBigInt
+  created_at         DateTime  @default(now()) @db.DateTime(0)
+  updated_at         DateTime  @updatedAt @db.DateTime(0)
+  deleted_at         DateTime? @db.DateTime(0)
+
+  @@map("general_configs")
+  @@index([deleted_at], map: "idx_general_configs_deleted_at")
+}
+
+model EmailConfig {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  smtp_host      String   @db.VarChar(255)
+  smtp_port      Int      @default(587)
+  smtp_secure    Boolean  @default(true)
+  smtp_username  String   @db.VarChar(255)
+  smtp_password  String   @db.VarChar(500)
+  from_email     String   @db.VarChar(255)
+  from_name      String   @db.VarChar(255)
+  reply_to_email String?  @db.VarChar(255)
+  created_user_id BigInt? @db.UnsignedBigInt
+  updated_user_id BigInt? @db.UnsignedBigInt
+  created_at      DateTime @default(now()) @db.DateTime(0)
+  updated_at      DateTime @updatedAt @db.DateTime(0)
+  deleted_at      DateTime? @db.DateTime(0)
+
+  @@map("email_configs")
+  @@index([deleted_at], map: "idx_email_configs_deleted_at")
+}
+
 model Comment {
   id              BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
   user_id         BigInt         @db.UnsignedBigInt
