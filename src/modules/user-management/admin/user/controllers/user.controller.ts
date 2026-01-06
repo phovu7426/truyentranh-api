@@ -44,7 +44,7 @@ export class UserController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     // Dto không map 1-1 với entity, service sẽ chuẩn hóa trong hooks
-    return this.service.update(Number(id), dto as any);
+    return this.service.updateById(Number(id), dto as any);
   }
 
   @Permission('user.manage')
@@ -58,7 +58,7 @@ export class UserController {
   @LogRequest({ fileBaseName: 'user_delete' })
   @Delete(':id')
   delete(@Param('id') id: string) {
-    return this.service.delete(Number(id));
+    return this.service.deleteById(Number(id));
   }
 }
 

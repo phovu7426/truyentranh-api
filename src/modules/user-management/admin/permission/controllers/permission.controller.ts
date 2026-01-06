@@ -34,7 +34,7 @@ export class PermissionController {
   @Post()
   async create(@Body() dto: any) {
     const userId = Auth.id() as number;
-    return this.service.create(dto, userId);
+    return this.service.createWithAudit(dto, userId);
   }
 
   @Permission('permission.manage')
@@ -45,14 +45,14 @@ export class PermissionController {
     @Body() dto: any,
   ) {
     const userId = Auth.id() as number;
-    return this.service.update(id, dto, userId);
+    return this.service.updateWithAudit(id, dto, userId);
   }
 
   @Permission('permission.manage')
   @LogRequest()
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
-    return this.service.delete(id);
+    return this.service.deleteById(id);
   }
 }
 

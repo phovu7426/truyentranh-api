@@ -30,15 +30,7 @@ export class RoleController {
   @Permission('role.manage')
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.getOne({ id } as any, {
-      relations: [
-        'parent',
-        'children',
-        'permissions',
-        'role_contexts',
-        'role_contexts.context',
-      ]
-    });
+    return this.service.getOne({ id: BigInt(id) } as any);
   }
 
   @LogRequest()
@@ -50,7 +42,7 @@ export class RoleController {
     if (!userId) {
       throw new Error('User not authenticated');
     }
-    return this.service.create(dto, userId);
+    return this.service.createWithAudit(dto, userId);
   }
 
   @LogRequest()
@@ -65,14 +57,14 @@ export class RoleController {
       throw new Error('User not authenticated');
     }
     const userId = this.auth.id();
-    return this.service.update(id, dto, userId!);
+    return this.service.updateWithAudit(id, dto, userId!);
   }
 
   @LogRequest()
   @Permission('role.manage')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
-    return this.service.delete(id);
+    return this.service.deleteById(id);
   }
 
   @LogRequest()

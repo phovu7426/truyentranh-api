@@ -1,99 +1,33 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial, In } from 'typeorm';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { User } from '@/shared/entities/user.entity';
-import { Profile } from '@/shared/entities/profile.entity';
-import { Context } from '@/shared/entities/context.entity';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { ChangePasswordDto } from '@/modules/user-management/admin/user/dtos/change-password.dto';
-import { CrudService } from '@/common/base/services/crud.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
-import { Filters, Options } from '@/common/base/interfaces/list.interface';
-import { createPaginationMeta } from '@/common/base/utils/pagination.helper';
-import { getCurrentContext, getCurrentGroup } from '@/common/utils/group-ownership.util';
+
+type AdminUserBag = PrismaCrudBag & {
+  Model: Prisma.UserGetPayload<any>;
+  Where: Prisma.UserWhereInput;
+  Select: Prisma.UserSelect;
+  Include: Prisma.UserInclude;
+  OrderBy: Prisma.UserOrderByWithRelationInput;
+  Create: Prisma.UserUncheckedCreateInput & { role_ids?: number[]; profile?: Prisma.ProfileUncheckedCreateInput | null };
+  Update: Prisma.UserUncheckedUpdateInput & { role_ids?: number[]; profile?: Prisma.ProfileUncheckedUpdateInput | null };
+};
 
 @Injectable()
-export class UserService extends CrudService<User> {
-  private get profileRepo(): Repository<Profile> {
-    return this.repository.manager.getRepository(Profile);
-  }
-
-  // Biến tạm để lưu role_ids khi update
+export class UserService extends PrismaCrudService<AdminUserBag> {
+  // Biến tạm để lưu role_ids khi create/update
   private tempRoleIds: number[] | null = null;
+  private profilePayload: Prisma.ProfileUncheckedCreateInput | Prisma.ProfileUncheckedUpdateInput | null = null;
 
   constructor(
-    @InjectRepository(User) protected readonly repository: Repository<User>,
+    private readonly prisma: PrismaService,
     private readonly rbacService: RbacService,
   ) {
-    super(repository);
-  }
-
-  /**
-   * Override getOne để đảm bảo load relations trong admin
-   * Optimize: Load profile và user_role_assignments trong cùng query để tránh N+1
-   */
-  async getOne(
-    where: any,
-    options?: any,
-  ) {
-    const adminOptions = {
-      ...options,
-      relations: ['user_role_assignments', 'profile'],
-    };
-    return super.getOne(where, adminOptions);
-  }
-
-  private get contextRepo(): Repository<Context> {
-    return this.repository.manager.getRepository(Context);
-  }
-
-  /**
-   * Override prepareFilters để filter users theo context
-   * Query user IDs có trong context và dùng In() operator để filter
-   */
-  protected override async prepareFilters(
-    filters?: Filters<User>,
-    _options?: Options,
-  ): Promise<boolean | any> {
-    const prepared = { ...(filters || {}) };
-
-    // Lấy context từ RequestContext
-    const context = RequestContext.get<Context>('context');
-    const contextId = RequestContext.get<number>('contextId') || 1;
-
-    // System admin (context.type = 'system') → không filter, lấy tất cả
-    if (!context || context.type === 'system') {
-      return prepared;
-    }
-
-    // ✅ MỚI: Group admin → query user IDs có trong groups của context này
-    const groupId = RequestContext.get<number | null>('groupId');
-    
-    // System context (id=1) → không filter, lấy tất cả users
-    if (contextId === 1 || !groupId) {
-      return prepared;
-    }
-
-    // Query users thuộc group này từ user_groups
-    const userGroupRepo = this.repository.manager.getRepository('UserGroup');
-    const userGroups = await userGroupRepo.find({
-      where: { group_id: groupId } as any,
-      select: ['user_id'],
-    });
-
-    const userIds = userGroups.map(ug => (ug as any).user_id);
-
-    // Nếu không có user nào trong group, trả về false để skip query (trả về empty result)
-    if (userIds.length === 0) {
-      return false;
-    }
-
-    // Thêm filter id: In(userIds) để chỉ lấy users có trong group
-    return {
-      ...prepared,
-      id: In(userIds),
-    };
+    super(prisma.user, ['id', 'created_at', 'email', 'phone'], 'id:DESC');
   }
 
   /**
@@ -103,178 +37,226 @@ export class UserService extends CrudService<User> {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      relations: ['user_role_assignments', 'profile'],
-    } as any;
+      include: {
+        user_role_assignments: true,
+        profile: true,
+      },
+    };
   }
 
+  /**
+   * Filter users theo context/group hiện tại
+   */
+  protected override async prepareFilters(
+    filters?: Prisma.UserWhereInput,
+    _options?: any,
+  ): Promise<boolean | Prisma.UserWhereInput> {
+    const prepared: Prisma.UserWhereInput = { ...(filters || {}) };
+
+    const context = RequestContext.get<any>('context');
+    const contextId = RequestContext.get<number>('contextId') || 1;
+
+    // System admin → không filter
+    if (!context || context.type === 'system') {
+      return prepared;
+    }
+
+    // Group admin → chỉ lấy user thuộc group hiện tại
+    const groupId = RequestContext.get<number | null>('groupId');
+    if (contextId === 1 || !groupId) {
+      return prepared;
+    }
+
+    const userGroups = await this.prisma.userGroup.findMany({
+      where: { group_id: BigInt(groupId) },
+      select: { user_id: true },
+    });
+
+    if (!userGroups.length) {
+      return false;
+    }
+
+    return {
+      ...prepared,
+      id: { in: userGroups.map((ug) => ug.user_id) },
+    };
+  }
+
+  /**
+   * Admin đổi mật khẩu user (không cần old password)
+   */
   async changePassword(id: number, dto: ChangePasswordDto) {
-    const user = await this.repository.findOne({ where: { id } as any });
+    const user = await this.prisma.user.findUnique({
+      where: { id: BigInt(id) },
+      select: { id: true, password: true },
+    });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
-    user.password = await bcrypt.hash(dto.password, 10);
-    await this.repository.save(user as any);
+    const hashed = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({
+      where: { id: BigInt(id) },
+      data: { password: hashed },
+    });
   }
 
-  protected async beforeCreate(_entity: User, createDto: DeepPartial<User>): Promise<boolean> {
-    if ((createDto as any).password) {
-      (createDto as any).password = await bcrypt.hash((createDto as any).password, 10);
+  /**
+   * Chuẩn hóa payload trước khi create
+   */
+  protected override async beforeCreate(createDto: AdminUserBag['Create']): Promise<AdminUserBag['Create']> {
+    const payload: any = { ...createDto };
+
+    if (payload.password) {
+      payload.password = await bcrypt.hash(payload.password, 10);
     }
-    
+
     // Handle role_ids - lưu vào biến tạm để xử lý sau khi create
-    const roleIds = (createDto as any).role_ids;
-    if (roleIds !== undefined) {
-      if (Array.isArray(roleIds)) {
-        // Lưu vào biến tạm để xử lý trong afterCreate
-        this.tempRoleIds = roleIds.map(id => Number(id)).filter(id => !isNaN(id));
-      } else {
-        // role_ids không phải array → không gán roles
-        this.tempRoleIds = [];
-      }
-    }
-    delete (createDto as any).role_ids;
-    
-    if ('profile' in (createDto as any)) delete (createDto as any).profile;
-    return true;
-  }
-
-  protected async afterCreate(entity: User, createDto: DeepPartial<User>): Promise<void> {
-    // Xử lý profile
-    const profilePayload = (createDto as any).profile ?? null;
-    if (profilePayload) {
-      // Kiểm tra xem profile đã tồn tại chưa (1 user chỉ có 1 profile)
-      const existingProfile = await this.profileRepo.findOne({ where: { userId: entity.id } });
-      if (!existingProfile) {
-        const profile = this.profileRepo.create({ ...(profilePayload as any), userId: entity.id });
-        await this.profileRepo.save(profile);
-      }
-    }
-
-    // Xử lý role_ids - gán roles cho user mới trong context hiện tại
-    if (this.tempRoleIds !== null && this.tempRoleIds.length > 0) {
-      // ✅ MỚI: Lấy groupId từ RequestContext (đã được set bởi GroupInterceptor)
-      const groupId = RequestContext.get<number | null>('groupId');
-      
-      if (!groupId) {
-        // System context - không có group, skip role assignment
-        // Hoặc có thể tạo SYSTEM_ADMIN group assignment nếu cần
-        this.tempRoleIds = null;
-        return;
-      }
-      
-      // Sync roles (gán roles cho user mới)
-      // Bỏ qua validation vì đây là admin API
-      await this.rbacService.syncRolesInGroup(
-        entity.id,
-        groupId,
-        this.tempRoleIds,
-        true // skipValidation = true cho admin API
-      );
-      
-      // Reset biến tạm
+    if (payload.role_ids !== undefined) {
+      this.tempRoleIds = Array.isArray(payload.role_ids)
+        ? payload.role_ids.map((id: any) => Number(id)).filter((id: number) => !isNaN(id))
+        : [];
+    } else {
       this.tempRoleIds = null;
     }
+    delete payload.role_ids;
+
+    // Handle profile (tách ra xử lý riêng)
+    if ('profile' in payload) {
+      this.profilePayload = payload.profile as any;
+      delete payload.profile;
+    } else {
+      this.profilePayload = null;
+    }
+
+    return payload;
   }
 
-  protected async beforeUpdate(_entity: User, updateDto: DeepPartial<User>): Promise<boolean> {
-    if ((updateDto as any).password) {
-      (updateDto as any).password = await bcrypt.hash((updateDto as any).password, 10);
-    } else if ('password' in (updateDto as any)) {
-      delete (updateDto as any).password;
-    }
-    
-    // Handle role_ids - lưu vào biến tạm để xử lý sau khi update
-    const roleIds = (updateDto as any).role_ids;
-    if (roleIds !== undefined) {
-      if (Array.isArray(roleIds)) {
-        // Lưu vào biến tạm để xử lý trong afterUpdate
-        this.tempRoleIds = roleIds.map(id => Number(id)).filter(id => !isNaN(id));
-      } else {
-        // role_ids không phải array → xóa hết roles
-        this.tempRoleIds = [];
-      }
-    }
-    delete (updateDto as any).role_ids;
-    
-    if ('profile' in (updateDto as any)) delete (updateDto as any).profile;
-    return true;
-  }
+  /**
+   * Sau khi create: tạo profile và gán role trong group hiện tại
+   */
+  protected override async afterCreate(entity: any, _createDto: AdminUserBag['Create']): Promise<void> {
+    const userId = Number(entity.id);
 
-  protected async afterUpdate(entity: User, updateDto: DeepPartial<User>): Promise<void> {
     // Xử lý profile
-    const profilePayload = (updateDto as any).profile ?? null;
-    if (profilePayload && Object.keys(profilePayload).length) {
-      // 1 user chỉ có 1 profile, tìm profile hiện tại hoặc tạo mới
-      let profile = await this.profileRepo.findOne({ where: { userId: entity.id } });
-      if (profile) {
-        // Cập nhật profile hiện tại
-        Object.assign(profile, profilePayload as any);
-        await this.profileRepo.save(profile);
-      } else {
-        // Tạo profile mới nếu chưa có
-        const createdProfile = this.profileRepo.create({ ...(profilePayload as any), userId: entity.id });
-        await this.profileRepo.save(createdProfile);
+    if (this.profilePayload) {
+      const profileData = { ...(this.profilePayload as any), user_id: BigInt(userId) };
+      await this.prisma.profile.upsert({
+        where: { user_id: BigInt(userId) },
+        create: profileData,
+        update: profileData,
+      });
+    }
+
+    // Gán role_ids cho group hiện tại
+    if (this.tempRoleIds && this.tempRoleIds.length > 0) {
+      const groupId = RequestContext.get<number | null>('groupId');
+      if (groupId) {
+        await this.rbacService.syncRolesInGroup(
+          userId,
+          groupId,
+          this.tempRoleIds,
+          true, // skipValidation cho admin API
+        );
       }
     }
 
-    // ✅ MỚI: Xử lý role_ids - đồng bộ lại toàn bộ roles trong group hiện tại
+    // Reset biến tạm
+    this.tempRoleIds = null;
+    this.profilePayload = null;
+  }
+
+  /**
+   * Chuẩn hóa payload trước khi update
+   */
+  protected override async beforeUpdate(_where: Prisma.UserWhereInput, updateDto: AdminUserBag['Update']): Promise<AdminUserBag['Update']> {
+    const payload: any = { ...updateDto };
+
+    if (payload.password) {
+      payload.password = await bcrypt.hash(payload.password, 10);
+    } else if ('password' in payload) {
+      delete payload.password;
+    }
+
+    if (payload.role_ids !== undefined) {
+      this.tempRoleIds = Array.isArray(payload.role_ids)
+        ? payload.role_ids.map((id: any) => Number(id)).filter((id: number) => !isNaN(id))
+        : [];
+    } else {
+      this.tempRoleIds = null;
+    }
+    delete payload.role_ids;
+
+    if ('profile' in payload) {
+      this.profilePayload = payload.profile as any;
+      delete payload.profile;
+    } else {
+      this.profilePayload = null;
+    }
+
+    return payload;
+  }
+
+  /**
+   * Sau khi update: cập nhật profile và đồng bộ role_ids
+   */
+  protected override async afterUpdate(entity: any, _updateDto: AdminUserBag['Update']): Promise<void> {
+    const userId = Number(entity.id);
+
+    // Update profile nếu có payload
+    if (this.profilePayload && Object.keys(this.profilePayload).length) {
+      const profileData = { ...(this.profilePayload as any) };
+      await this.prisma.profile.upsert({
+        where: { user_id: BigInt(userId) },
+        create: { ...profileData, user_id: BigInt(userId) },
+        update: profileData,
+      });
+    }
+
+    // Đồng bộ roles trong group hiện tại
     if (this.tempRoleIds !== null) {
-      // Lấy groupId từ RequestContext (đã được set bởi GroupInterceptor)
       const groupId = RequestContext.get<number | null>('groupId');
-      
-      if (!groupId) {
-        // System context - không có group, skip role assignment
-        this.tempRoleIds = null;
-        return;
+      if (groupId) {
+        await this.rbacService.syncRolesInGroup(
+          userId,
+          groupId,
+          this.tempRoleIds,
+          true,
+        );
       }
-      
-      // Sync roles (xóa toàn bộ roles cũ và thêm roles mới)
-      // Bỏ qua validation vì đây là admin API, user đã có quyền update user thì có quyền gán roles
-      await this.rbacService.syncRolesInGroup(
-        entity.id,
-        groupId,
-        this.tempRoleIds,
-        true // skipValidation = true cho admin API
-      );
-      
-      // Reset biến tạm
-      this.tempRoleIds = null;
     }
+
+    this.tempRoleIds = null;
+    this.profilePayload = null;
   }
 
-  protected async afterDelete(entity: User): Promise<void> {
-    // Xóa profile sau khi xóa user
+  /**
+   * Cleanup sau khi delete
+   */
+  protected override async afterDelete(entity: any): Promise<void> {
     try {
-      const profile = await this.profileRepo.findOne({ where: { userId: entity.id } });
-      if (profile) {
-        await this.profileRepo.remove(profile);
-      }
-    } catch (error) {
-      // Log error nhưng không throw vì user đã được xóa
-      // Removed console.error for production
+      await this.prisma.profile.deleteMany({ where: { user_id: BigInt(entity.id) } });
+    } catch {
+      // ignore
     }
   }
 
   /**
    * Transform data sau khi lấy một entity để thêm role_ids và làm sạch response
    */
-  protected async afterGetOne(
-    entity: User,
-    where?: any,
-    options?: any
-  ): Promise<User> {
-    // ✅ MỚI: Lấy role_ids từ user_role_assignments của group hiện tại
+  protected override async afterGetOne(
+    entity: any,
+    _where?: any,
+    _options?: any,
+  ): Promise<any> {
     const groupId = RequestContext.get<number | null>('groupId');
-    if (groupId && (entity as any).user_role_assignments) {
-      const roleIds = (entity as any).user_role_assignments
+    if (groupId && entity?.user_role_assignments) {
+      const roleIds = (entity.user_role_assignments as any[])
         .filter((ura: any) => ura.group_id === groupId)
         .map((ura: any) => ura.role_id);
       (entity as any).role_ids = roleIds;
-      // Xóa user_role_assignments khỏi response để tránh dư thừa (đã có role_ids)
       delete (entity as any).user_role_assignments;
     } else {
       (entity as any).role_ids = [];
     }
 
-    // Xóa contexts khỏi response nếu không cần thiết (đã có role_ids)
     if ((entity as any).contexts) {
       delete (entity as any).contexts;
     }
@@ -285,29 +267,24 @@ export class UserService extends CrudService<User> {
   /**
    * Transform data sau khi lấy danh sách để thêm role_ids cho mỗi user và làm sạch response
    */
-  protected async afterGetList(
-    data: User[],
-    filters?: any,
-    options?: any
-  ): Promise<User[]> {
-    // ✅ MỚI: Lấy role_ids từ user_role_assignments của group hiện tại
+  protected override async afterGetList(
+    data: any[],
+    _filters?: any,
+    _options?: any,
+  ): Promise<any[]> {
     const groupId = RequestContext.get<number | null>('groupId');
 
-    return data.map(user => {
-      // Lấy role_ids từ user_role_assignments của group hiện tại
-      if (groupId && (user as any).user_role_assignments) {
-        const roleIds = (user as any).user_role_assignments
+    return data.map((user) => {
+      if (groupId && user?.user_role_assignments) {
+        const roleIds = (user.user_role_assignments as any[])
           .filter((ura: any) => ura.group_id === groupId)
           .map((ura: any) => ura.role_id);
-        
         (user as any).role_ids = roleIds;
-        // Xóa user_role_assignments khỏi response để tránh dư thừa (đã có role_ids)
         delete (user as any).user_role_assignments;
       } else {
         (user as any).role_ids = [];
       }
 
-      // Xóa contexts khỏi response nếu không cần thiết (đã có role_ids)
       if ((user as any).contexts) {
         delete (user as any).contexts;
       }
@@ -315,6 +292,27 @@ export class UserService extends CrudService<User> {
       return user;
     });
   }
+
+  /**
+   * Simple list giống getList nhưng limit mặc định lớn hơn
+   */
+  async getSimpleList(filters?: Prisma.UserWhereInput, options?: any) {
+    const simpleOptions = {
+      ...options,
+      limit: options?.limit ?? 50,
+      maxLimit: options?.maxLimit ?? 1000,
+    };
+    return this.getList(filters, simpleOptions);
+  }
+
+  /**
+   * Wrapper update/delete để nhận id dạng number (giữ API cũ)
+   */
+  async updateById(id: number, data: AdminUserBag['Update']) {
+    return super.update({ id: BigInt(id) } as any, data);
+  }
+
+  async deleteById(id: number) {
+    return super.delete({ id: BigInt(id) } as any);
+  }
 }
-
-
