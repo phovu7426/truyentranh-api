@@ -71,7 +71,6 @@ export class DashboardService {
         comic: h.comic,
         last_read_chapter: h.chapter,
         last_read_at: h.updated_at,
-        last_page: h.last_page,
       })),
       pagination: {
         page,
