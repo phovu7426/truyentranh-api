@@ -34,11 +34,12 @@ export class GroupInterceptor implements NestInterceptor {
       const userId = Auth.id(context);
       if (userId) {
         const userGroups = await this.userGroupService.getUserGroups(userId);
-        const hasAccess = userGroups.some((g: any) => g.id === group.id);
+        const groupIdNumber = Number(group.id); // Convert BigInt to number for comparison
+        const hasAccess = userGroups.some((g: any) => g.id === groupIdNumber);
         
         if (!hasAccess) {
           throw new ForbiddenException(
-            `Access denied to group ${group.id}. You do not have permission to access this group.`
+            `Access denied to group ${groupIdNumber}. You do not have permission to access this group.`
           );
         }
       }

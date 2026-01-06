@@ -7,6 +7,7 @@ import { performance } from 'perf_hooks';
 import { RequestContext } from '@/common/utils/request-context.util';
 import { Auth } from '@/common/utils/auth.util';
 import { DateUtil } from '@/core/utils/date.util';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 
 import { LogContext } from '@/core/logger/interfaces/log-context.interface';
 
@@ -108,7 +109,9 @@ export class CustomLoggerService implements LoggerService {
   }
 
   private writeJsonToFiles(level: LogLevel, entry: any, options?: LogWriteOptions): void {
-    const line = JSON.stringify(entry);
+    // Convert BigInt to number/string before JSON.stringify to avoid serialization errors
+    const plainEntry = toPlain(entry);
+    const line = JSON.stringify(plainEntry);
     const date = DateUtil.formatDate(undefined, 'Y-m-d'); // YYYY-MM-DD in configured timezone
 
     // Use per-day subdirectory: logs/YYYY-MM-DD/

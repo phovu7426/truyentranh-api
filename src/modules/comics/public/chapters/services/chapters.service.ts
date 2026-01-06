@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 import { PUBLIC_CHAPTER_STATUSES } from '@/shared/enums';
 
 type ChapterBag = PrismaListBag & {
@@ -55,10 +56,12 @@ export class PublicChaptersService extends PrismaListService<ChapterBag> {
       throw new NotFoundException('Chapter not found');
     }
 
-    return this.prisma.chapterPage.findMany({
+    const pages = await this.prisma.chapterPage.findMany({
       where: { chapter_id: BigInt(chapterId) },
       orderBy: { page_number: 'asc' },
     });
+
+    return toPlain(pages);
   }
 
   /**
@@ -83,7 +86,7 @@ export class PublicChaptersService extends PrismaListService<ChapterBag> {
       orderBy: { id: 'asc' },
     });
 
-    return next || null;
+    return next ? toPlain(next) : null;
   }
 
   /**
@@ -108,7 +111,7 @@ export class PublicChaptersService extends PrismaListService<ChapterBag> {
       orderBy: { id: 'desc' },
     });
 
-    return prev || null;
+    return prev ? toPlain(prev) : null;
   }
 }
 

@@ -158,7 +158,14 @@ async function bootstrap() {
 // Note: We keep minimal top-level handlers and attach detailed ones after app starts
 
 bootstrap().catch((error) => {
-  // Removed console.error for production
+  // Log error in development to help debug connection issues
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  if (isDevelopment) {
+    console.error('❌ Failed to start application:', error);
+    if (error instanceof Error) {
+      console.error('Error stack:', error.stack);
+    }
+  }
   process.exit(1);
 });
 
