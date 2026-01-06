@@ -1,33 +1,46 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PostTag } from '@/shared/entities/post-tag.entity';
-import { ListService } from '@/common/base/services/list.service';
+import { Prisma } from '@prisma/client';
+import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+
+type PublicPostTagBag = PrismaListBag & {
+  Model: Prisma.PostTagGetPayload<any>;
+  Where: Prisma.PostTagWhereInput;
+  Select: Prisma.PostTagSelect;
+  Include: Prisma.PostTagInclude;
+  OrderBy: Prisma.PostTagOrderByWithRelationInput;
+};
 
 @Injectable()
-export class PostTagService extends ListService<PostTag> {
+export class PostTagService extends PrismaListService<PublicPostTagBag> {
   constructor(
-    @InjectRepository(PostTag) protected readonly repo: Repository<PostTag>,
+    private readonly prisma: PrismaService,
   ) {
-    super(repo);
+    super(prisma.postTag, ['id', 'created_at', 'name', 'slug'], 'created_at:DESC');
   }
 
-  protected prepareFilters(filters: any = {}) {
-    const prepared: any = { ...filters };
-    if (prepared.status === undefined) prepared.status = 'active';
-    if (prepared.search) {
-      // Controller có thể map search -> name chứa; ở đây giữ nguyên để helper xử lý where cơ bản
-    }
+  protected override async prepareFilters(
+    filters: Prisma.PostTagWhereInput = {},
+    _options?: any,
+  ): Promise<Prisma.PostTagWhereInput> {
+    const prepared: Prisma.PostTagWhereInput = { ...(filters || {}) };
+    if (prepared.status === undefined) prepared.status = 'active' as any;
     return prepared;
   }
 
-  protected prepareOptions(queryOptions: any = {}) {
+  protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      select: ['id', 'name', 'slug', 'description', 'created_at'],
+      select: queryOptions?.select ?? {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        created_at: true,
+      },
       sort: base.sort ?? 'created_at:DESC',
-    } as any;
+    };
   }
 }
 

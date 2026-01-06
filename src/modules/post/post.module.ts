@@ -1,10 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Import shared entities
-import { Post } from '@/shared/entities/post.entity';
-import { PostCategory } from '@/shared/entities/post-category.entity';
-import { PostTag } from '@/shared/entities/post-tag.entity';
 
 // Import shared services
 import { PostService } from '@/modules/post/admin/post/services/post.service';
@@ -23,11 +17,6 @@ import { PublicPostTagModule } from '@/modules/post/public/post-tag/post-tag.mod
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Post,
-      PostCategory,
-      PostTag,
-    ]),
     // Admin modules
     AdminPostModule,
     AdminPostCategoryModule,
@@ -48,7 +37,6 @@ import { PublicPostTagModule } from '@/modules/post/public/post-tag/post-tag.mod
     PostService,
     PostCategoryService,
     PostTagService,
-    TypeOrmModule,
   ],
 })
 export class PostModule { }

@@ -35,6 +35,25 @@ enum Gender {
   female
   other
 }
+
+enum PostStatus {
+  draft
+  scheduled
+  published
+  archived
+}
+
+enum PostType {
+  text
+  video
+  image
+  audio
+}
+
+enum BasicStatus {
+  active
+  inactive
+}
 model Comic {
   id               BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
   slug             String        @unique @db.VarChar(255)
@@ -500,5 +519,141 @@ model UserRoleAssignment {
   @@index([group_id], map: "idx_group_id")
   @@index([role_id], map: "idx_role_id")
   @@unique([user_id, role_id, group_id], map: "idx_user_role_group_unique")
+}
+
+model PostCategory {
+  id               BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  name             String         @db.VarChar(255)
+  slug             String         @unique @db.VarChar(255)
+  description      String?        @db.Text
+  parent_id        BigInt?        @db.UnsignedBigInt
+  image            String?        @db.VarChar(255)
+  status           BasicStatus    @default(active)
+  meta_title       String?        @db.VarChar(255)
+  meta_description String?        @db.Text
+  canonical_url    String?        @db.VarChar(255)
+  og_image         String?        @db.VarChar(255)
+  sort_order       Int            @default(0)
+  created_user_id  BigInt?        @db.UnsignedBigInt
+  updated_user_id  BigInt?        @db.UnsignedBigInt
+  created_at       DateTime       @default(now()) @db.DateTime(0)
+  updated_at       DateTime       @updatedAt @db.DateTime(0)
+  deleted_at       DateTime?      @db.DateTime(0)
+
+  parent           PostCategory?  @relation("PostCategoryHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
+  children         PostCategory[] @relation("PostCategoryHierarchy")
+  primary_posts    Post[]         @relation("PostPrimaryCategory")
+  posts            PostPostcategory[]
+
+  @@map("postcategory")
+  @@index([name], map: "idx_name")
+  @@index([slug], map: "idx_slug")
+  @@index([parent_id], map: "idx_parent_id")
+  @@index([status], map: "idx_status")
+  @@index([sort_order], map: "idx_sort_order")
+  @@index([created_at], map: "idx_created_at")
+  @@index([status, sort_order], map: "idx_status_sort_order")
+  @@index([parent_id, status], map: "idx_parent_status")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model PostTag {
+  id               BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  name             String        @db.VarChar(255)
+  slug             String        @unique @db.VarChar(255)
+  description      String?       @db.Text
+  status           BasicStatus   @default(active)
+  meta_title       String?       @db.VarChar(255)
+  meta_description String?       @db.Text
+  canonical_url    String?       @db.VarChar(255)
+  created_user_id  BigInt?       @db.UnsignedBigInt
+  updated_user_id  BigInt?       @db.UnsignedBigInt
+  created_at       DateTime      @default(now()) @db.DateTime(0)
+  updated_at       DateTime      @updatedAt @db.DateTime(0)
+  deleted_at       DateTime?     @db.DateTime(0)
+
+  posts            PostPosttag[]
+
+  @@map("posttag")
+  @@index([name], map: "idx_name")
+  @@index([slug], map: "idx_slug")
+  @@index([status], map: "idx_status")
+  @@index([created_at], map: "idx_created_at")
+  @@index([status, created_at], map: "idx_status_created_at")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model Post {
+  id                       BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  name                     String        @db.VarChar(255)
+  slug                     String        @unique @db.VarChar(255)
+  excerpt                  String?       @db.Text
+  content                  String        @db.LongText
+  image                    String?       @db.VarChar(255)
+  cover_image              String?       @db.VarChar(255)
+  primary_postcategory_id  BigInt?       @db.UnsignedBigInt
+  status                   PostStatus    @default(draft)
+  post_type                PostType      @default(text)
+  video_url                String?       @db.VarChar(500)
+  audio_url                String?       @db.VarChar(500)
+  is_featured              Boolean       @default(false)
+  is_pinned                Boolean       @default(false)
+  published_at             DateTime?     @db.DateTime(0)
+  view_count               BigInt        @default(0) @db.UnsignedBigInt
+  meta_title               String?       @db.VarChar(255)
+  meta_description         String?       @db.Text
+  canonical_url            String?       @db.VarChar(255)
+  og_title                 String?       @db.VarChar(255)
+  og_description           String?       @db.Text
+  og_image                 String?       @db.VarChar(255)
+  group_id                 BigInt?       @db.UnsignedBigInt
+  created_user_id          BigInt?       @db.UnsignedBigInt
+  updated_user_id          BigInt?       @db.UnsignedBigInt
+  created_at               DateTime      @default(now()) @db.DateTime(0)
+  updated_at               DateTime      @updatedAt @db.DateTime(0)
+  deleted_at               DateTime?     @db.DateTime(0)
+
+  primary_category         PostCategory? @relation("PostPrimaryCategory", fields: [primary_postcategory_id], references: [id], onDelete: SetNull)
+  categories               PostPostcategory[]
+  tags                     PostPosttag[]
+
+  @@map("posts")
+  @@index([name], map: "idx_name")
+  @@index([slug], map: "idx_slug")
+  @@index([primary_postcategory_id], map: "idx_primary_postcategory_id")
+  @@index([status], map: "idx_status")
+  @@index([post_type], map: "idx_post_type")
+  @@index([is_featured], map: "idx_is_featured")
+  @@index([is_pinned], map: "idx_is_pinned")
+  @@index([published_at], map: "idx_published_at")
+  @@index([view_count], map: "idx_view_count")
+  @@index([created_at], map: "idx_created_at")
+  @@index([status, published_at], map: "idx_status_published_at")
+  @@index([is_featured, status], map: "idx_is_featured_status")
+  @@index([primary_postcategory_id, status], map: "idx_primary_category_status")
+  @@index([group_id], map: "idx_posts_group_id")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model PostPostcategory {
+  post_id          BigInt       @db.UnsignedBigInt
+  postcategory_id  BigInt       @db.UnsignedBigInt
+
+  post             Post         @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  category         PostCategory @relation(fields: [postcategory_id], references: [id], onDelete: Cascade)
+
+  @@id([post_id, postcategory_id])
+  @@map("post_postcategory")
+}
+
+model PostPosttag {
+  post_id   BigInt  @db.UnsignedBigInt
+  posttag_id BigInt @db.UnsignedBigInt
+
+  post      Post    @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  tag       PostTag @relation(fields: [posttag_id], references: [id], onDelete: Cascade)
+
+  @@id([post_id, posttag_id])
+  @@map("post_posttag")
 }
 
