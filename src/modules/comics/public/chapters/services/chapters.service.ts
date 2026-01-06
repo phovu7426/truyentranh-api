@@ -22,7 +22,7 @@ export class PublicChaptersService extends PrismaListService<ChapterBag> {
    */
   protected override prepareFilters(filters?: any, _options?: any): boolean | any {
     const prepared = { ...(filters || {}) };
-    prepared.status = PUBLIC_CHAPTER_STATUSES;
+    prepared.status = { in: PUBLIC_CHAPTER_STATUSES };
     return prepared;
   }
 

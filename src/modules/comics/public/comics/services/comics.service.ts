@@ -28,10 +28,18 @@ export class PublicComicsService extends PrismaListService<ComicBag> {
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     const allowStatsSort = ['view_count', 'follow_count'];
-    const orderBy =
-      allowStatsSort.includes(String(base.sort).split(':')[0])
-        ? buildOrderBy(base.sort as any, allowStatsSort, 'view_count', 'desc')
-        : base.orderBy;
+    const [sortFieldRaw, sortDirRaw] = String(base.sort || '').split(':');
+    const sortField = sortFieldRaw || '';
+    const sortDirection =
+      (sortDirRaw || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const orderBy = allowStatsSort.includes(sortField)
+      ? {
+          stats: {
+            [sortField]: sortDirection,
+          },
+        }
+      : base.orderBy;
     return {
       ...base,
       include: { categoryLinks: { include: { category: true } }, stats: true },
