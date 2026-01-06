@@ -1,36 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification } from '@/shared/entities/notification.entity';
-import { ComicFollow } from '@/shared/entities/comic-follow.entity';
-import { Comment } from '@/shared/entities/comment.entity';
-import { Chapter } from '@/shared/entities/chapter.entity';
-import { Comic } from '@/shared/entities/comic.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { NotificationType } from '@/shared/entities/notification.entity';
 
 @Injectable()
 export class ComicNotificationService {
-  private get commentRepo(): Repository<Comment> {
-    return this.notificationRepo.manager.getRepository(Comment);
-  }
-
   constructor(
-    @InjectRepository(Notification) private readonly notificationRepo: Repository<Notification>,
-    @InjectRepository(ComicFollow) private readonly followRepo: Repository<ComicFollow>,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
    * Notify followers khi có chapter mới được publish
    */
-  async notifyNewChapter(chapter: Chapter) {
+  async notifyNewChapter(chapter: any) {
     if (!chapter.comic_id) {
       return;
     }
 
+    const comicId = Number(chapter.comic_id);
+
     // Lấy tất cả followers của comic
-    const followers = await this.followRepo.find({
-      where: { comic_id: chapter.comic_id } as any,
-      relations: ['comic'],
+    // Note: Prisma client sẽ có tên là comicFollow sau khi generate
+    const followers = await (this.prisma as any).comicFollow.findMany({
+      where: { comic_id: BigInt(comicId) },
+      include: { comic: true },
     });
 
     if (followers.length === 0) {
@@ -43,25 +35,27 @@ export class ComicNotificationService {
     }
 
     // Tạo notifications cho từng follower
-    const notifications = followers.map(follow =>
-      this.notificationRepo.create({
-        user_id: follow.user_id,
-        title: `Chapter mới: ${chapter.title}`,
-        message: `${comic.title} đã có chapter mới: ${chapter.chapter_label || chapter.chapter_index}`,
-        type: NotificationType.INFO,
+    const notifications = followers.map((follow: any) =>
+      this.prisma.notification.create({
         data: {
-          comic_id: comic.id,
-          comic_slug: comic.slug,
-          comic_title: comic.title,
-          chapter_id: chapter.id,
-          chapter_index: chapter.chapter_index,
-          chapter_label: chapter.chapter_label,
+          user_id: BigInt(Number(follow.user_id)),
+          title: `Chapter mới: ${chapter.title}`,
+          message: `${comic.title} đã có chapter mới: ${chapter.chapter_label || chapter.chapter_index}`,
+          type: NotificationType.INFO as any,
+          data: {
+            comic_id: Number(comic.id),
+            comic_slug: comic.slug,
+            comic_title: comic.title,
+            chapter_id: Number(chapter.id),
+            chapter_index: chapter.chapter_index,
+            chapter_label: chapter.chapter_label,
+          },
+          is_read: false,
         },
-        is_read: false,
       })
     );
 
-    await this.notificationRepo.save(notifications);
+    await Promise.all(notifications);
 
     return { notified: notifications.length };
   }
@@ -71,26 +65,28 @@ export class ComicNotificationService {
    */
   async notifyCommentReply(commentId: number, parentCommentId: number, userId: number) {
     // Lấy parent comment để biết user cần notify
-    const parentComment = await this.commentRepo.findOne({ where: { id: parentCommentId } });
+    const parentComment = await this.prisma.comment.findFirst({
+      where: { id: BigInt(parentCommentId), deleted_at: null },
+    });
 
-    if (!parentComment || parentComment.user_id === userId) {
+    if (!parentComment || Number(parentComment.user_id) === userId) {
       return; // Không notify chính mình
     }
 
-    const notification = this.notificationRepo.create({
-      user_id: parentComment.user_id,
-      title: 'Có người trả lời bình luận của bạn',
-      message: 'Bạn có một phản hồi mới cho bình luận của bạn',
-      type: NotificationType.INFO,
+    const notification = await this.prisma.notification.create({
       data: {
-        comment_id: commentId,
-        parent_comment_id: parentCommentId,
+        user_id: parentComment.user_id,
+        title: 'Có người trả lời bình luận của bạn',
+        message: 'Bạn có một phản hồi mới cho bình luận của bạn',
+        type: NotificationType.INFO as any,
+        data: {
+          comment_id: commentId,
+          parent_comment_id: parentCommentId,
+        },
+        is_read: false,
       },
-      is_read: false,
     });
 
-    await this.notificationRepo.save(notification);
     return notification;
   }
 }
-

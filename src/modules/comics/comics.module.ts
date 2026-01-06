@@ -1,18 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Import shared entities
-import { Comic } from '@/shared/entities/comic.entity';
-import { ComicStats } from '@/shared/entities/comic-stats.entity';
-import { ComicCategory } from '@/shared/entities/comic-category.entity';
-import { Chapter } from '@/shared/entities/chapter.entity';
-import { ChapterPage } from '@/shared/entities/chapter-page.entity';
-import { ComicReview } from '@/shared/entities/comic-review.entity';
-import { ComicFollow } from '@/shared/entities/comic-follow.entity';
-import { ReadingHistory } from '@/shared/entities/reading-history.entity';
-import { Bookmark } from '@/shared/entities/bookmark.entity';
-import { Comment } from '@/shared/entities/comment.entity';
-import { ComicView } from '@/shared/entities/comic-view.entity';
 
 // Import admin modules
 import { AdminComicsModule } from '@/modules/comics/admin/comics/comics.module';
@@ -39,24 +25,9 @@ import { UserReviewsModule } from '@/modules/comics/user/reviews/reviews.module'
 import { UserCommentsModule } from '@/modules/comics/user/comments/comments.module';
 import { DashboardModule } from '@/modules/comics/user/dashboard/dashboard.module';
 import { ComicNotificationService } from '@/modules/comics/core/services/comic-notification.service';
-import { Notification } from '@/shared/entities/notification.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Comic,
-      ComicStats,
-      ComicCategory,
-      Chapter,
-      ChapterPage,
-      ComicReview,
-      ComicFollow,
-      ReadingHistory,
-      Bookmark,
-      Comment,
-      ComicView,
-      Notification,
-    ]),
     // Admin modules
     AdminComicsModule,
     AdminComicCategoriesModule,
@@ -84,7 +55,6 @@ import { Notification } from '@/shared/entities/notification.entity';
     ComicNotificationService,
   ],
   exports: [
-    TypeOrmModule,
     ComicNotificationService,
   ],
 })

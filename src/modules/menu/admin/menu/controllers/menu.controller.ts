@@ -45,7 +45,8 @@ export class AdminMenuController {
   @Permission('menu.manage')
   @Post()
   async create(@Body() dto: CreateMenuDto) {
-    return this.service.create(dto, this.auth.id() || undefined);
+    const userId = this.auth.id();
+    return this.service.createWithUser(dto, userId ?? undefined);
   }
 
   @LogRequest()
@@ -55,14 +56,15 @@ export class AdminMenuController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMenuDto
   ) {
-    return this.service.update(id, dto, this.auth.id() || undefined);
+    const userId = this.auth.id();
+    return this.service.updateById(id, dto, userId ?? undefined);
   }
 
   @LogRequest()
   @Permission('menu.manage')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
-    return this.service.delete(id);
+    return this.service.deleteById(id);
   }
 }
 

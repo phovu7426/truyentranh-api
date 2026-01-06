@@ -45,7 +45,7 @@ export class ComicsController {
   @Permission('comic.manage')
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number) {
-    return this.comicsService.getOne({ id });
+    return this.comicsService.getOne({ id: BigInt(id) } as any);
   }
 
   @Permission('comic.manage')
@@ -100,12 +100,11 @@ export class ComicsController {
     ImageValidator.validate(file);
 
     const uploadResult = await this.uploadService.uploadFile(file);
-    const comic = await this.comicsService.getOne({ id });
+    const comic = await this.comicsService.getOne({ id: BigInt(id) } as any);
     if (!comic) {
       throw new Error('Comic not found');
     }
 
-    comic.cover_image = uploadResult.url;
     return this.comicsService.update(id, { cover_image: uploadResult.url } as any);
   }
 

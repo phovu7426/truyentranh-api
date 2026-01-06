@@ -127,6 +127,7 @@ model Comic {
   comments         Comment[]
   reviews          ComicReview[]
   views            ComicView[]
+  follows          ComicFollow[]
 
   @@map("comics")
   @@index([slug], map: "idx_slug")
@@ -373,6 +374,22 @@ model ComicView {
   @@index([chapter_id, created_at], map: "idx_chapter_created")
 }
 
+model ComicFollow {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id     BigInt   @db.UnsignedBigInt
+  comic_id    BigInt   @db.UnsignedBigInt
+  created_at  DateTime @default(now()) @db.DateTime(0)
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  comic       Comic    @relation(fields: [comic_id], references: [id], onDelete: Cascade)
+
+  @@map("comic_follows")
+  @@unique([user_id, comic_id], map: "idx_user_comic")
+  @@index([user_id], map: "idx_user_id")
+  @@index([comic_id], map: "idx_comic_id")
+  @@index([created_at], map: "idx_created_at")
+}
+
 model User {
   id               BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
   username         String?    @unique @db.VarChar(50)
@@ -396,6 +413,8 @@ model User {
   profile          Profile?
   user_groups      UserGroup[]
   user_role_assignments UserRoleAssignment[]
+  notifications    Notification[]
+  comic_follows    ComicFollow[]
 
   @@map("users")
   @@index([deleted_at], map: "idx_deleted_at")
@@ -500,6 +519,8 @@ model Permission {
   parent           Permission?      @relation("PermissionHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
   children         Permission[]     @relation("PermissionHierarchy")
   role_links       RoleHasPermission[]
+  menus            Menu[]
+  menu_permissions  MenuPermission[]
 
   @@map("permissions")
   @@index([scope], map: "idx_scope")
@@ -731,5 +752,93 @@ model PostPosttag {
 
   @@id([post_id, posttag_id])
   @@map("post_posttag")
+}
+
+enum MenuType {
+  route
+  group
+  link
+}
+
+model Menu {
+  id                     BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  code                   String        @unique @db.VarChar(120)
+  name                   String        @db.VarChar(150)
+  path                   String?       @db.VarChar(255)
+  api_path               String?       @db.VarChar(255)
+  icon                   String?       @db.VarChar(120)
+  type                   MenuType      @default(route)
+  status                 BasicStatus   @default(active)
+  parent_id              BigInt?       @db.UnsignedBigInt
+  sort_order             Int           @default(0)
+  is_public              Boolean       @default(false)
+  show_in_menu           Boolean       @default(true)
+  required_permission_id BigInt?       @db.UnsignedBigInt
+  created_user_id        BigInt?       @db.UnsignedBigInt
+  updated_user_id        BigInt?       @db.UnsignedBigInt
+  created_at             DateTime      @default(now()) @db.DateTime(0)
+  updated_at             DateTime      @updatedAt @db.DateTime(0)
+  deleted_at             DateTime?     @db.DateTime(0)
+
+  parent                 Menu?         @relation("MenuHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
+  children               Menu[]        @relation("MenuHierarchy")
+  required_permission    Permission?   @relation(fields: [required_permission_id], references: [id], onDelete: SetNull)
+  menu_permissions        MenuPermission[]
+
+  @@map("menus")
+  @@index([code], map: "idx_code")
+  @@index([parent_id], map: "idx_parent_id")
+  @@index([required_permission_id], map: "idx_required_permission_id")
+  @@index([status, show_in_menu], map: "idx_status_show_in_menu")
+  @@index([deleted_at], map: "idx_deleted_at")
+}
+
+model MenuPermission {
+  id           BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  menu_id      BigInt      @db.UnsignedBigInt
+  permission_id BigInt     @db.UnsignedBigInt
+
+  menu         Menu        @relation(fields: [menu_id], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@map("menu_permissions")
+  @@index([menu_id], map: "idx_menu_id")
+  @@index([permission_id], map: "idx_permission_id")
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+  order_status
+  payment_status
+  promotion
+}
+
+model Notification {
+  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id         BigInt           @db.UnsignedBigInt
+  title           String           @db.VarChar(255)
+  message         String           @db.Text
+  type            NotificationType @default(info)
+  data            Json?
+  is_read         Boolean          @default(false)
+  read_at         DateTime?        @db.DateTime(0)
+  status          BasicStatus      @default(active)
+  created_user_id BigInt?          @db.UnsignedBigInt
+  updated_user_id BigInt?          @db.UnsignedBigInt
+  created_at      DateTime         @default(now()) @db.DateTime(0)
+  updated_at      DateTime         @updatedAt @db.DateTime(0)
+  deleted_at      DateTime?        @db.DateTime(0)
+
+  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@index([user_id], map: "idx_notifications_user_id")
+  @@index([status], map: "idx_notifications_status")
+  @@index([type], map: "idx_notifications_type")
+  @@index([is_read], map: "idx_notifications_read")
+  @@index([deleted_at], map: "idx_deleted_at")
 }
 

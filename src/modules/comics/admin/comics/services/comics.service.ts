@@ -1,217 +1,327 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, DeepPartial } from 'typeorm';
-import { Comic } from '@/shared/entities/comic.entity';
-import { ComicStats } from '@/shared/entities/comic-stats.entity';
-import { ComicCategory } from '@/shared/entities/comic-category.entity';
-import { CrudService } from '@/common/base/services/crud.service';
-import { RequestContext } from '@/common/utils/request-context.util';
-import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
+import { StringUtil } from '@/core/utils/string.util';
+
+type ComicBag = PrismaCrudBag & {
+  Model: Prisma.ComicGetPayload<any>;
+  Where: Prisma.ComicWhereInput;
+  Select: Prisma.ComicSelect;
+  Include: Prisma.ComicInclude;
+  OrderBy: Prisma.ComicOrderByWithRelationInput;
+  Create: Prisma.ComicUncheckedCreateInput & { category_ids?: number[] };
+  Update: Prisma.ComicUncheckedUpdateInput & { category_ids?: number[] | null };
+};
 
 @Injectable()
-export class ComicsService extends CrudService<Comic> {
-  private get categoryRepo(): Repository<ComicCategory> {
-    return this.repository.manager.getRepository(ComicCategory);
-  }
-
-  private get statsRepo(): Repository<ComicStats> {
-    return this.repository.manager.getRepository(ComicStats);
-  }
+export class ComicsService extends PrismaCrudService<ComicBag> {
+  private tempCategoryIds: number[] | null = null;
 
   constructor(
-    @InjectRepository(Comic) protected readonly repo: Repository<Comic>,
+    private readonly prisma: PrismaService,
   ) {
-    super(repo);
+    super(prisma.comic, ['id', 'created_at', 'slug'], 'id:DESC');
   }
 
-  /**
-   * Override để load relations trong admin
-   */
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      relations: ['categories', 'stats'],
-    } as any;
+      include: {
+        categoryLinks: {
+          include: {
+            category: true,
+          },
+        },
+        stats: true,
+      },
+    };
   }
 
-  /**
-   * Transform data sau khi lấy danh sách
-   */
-  protected async afterGetList(
-    data: Comic[],
-    filters?: any,
-    options?: any
-  ): Promise<Comic[]> {
+  protected async afterGetList(data: any[], _filters?: any, _options?: any): Promise<any[]> {
     return data.map(comic => {
-      if (comic.categories) {
-        comic.categories = comic.categories.map(cat => {
-          const { id, name, slug } = cat;
-          return { id, name, slug } as any;
-        });
-      }
-      return comic;
+      const categories = comic.categoryLinks?.map((link: any) => {
+        const cat = link.category;
+        return {
+          id: Number(cat.id),
+          name: cat.name,
+          slug: cat.slug,
+        };
+      }) || [];
+      return {
+        ...this.convertBigIntFields(comic),
+        categories,
+      };
     });
   }
 
-  /**
-   * Transform data sau khi lấy một entity
-   */
-  protected async afterGetOne(
-    entity: Comic,
-    where?: any,
-    options?: any
-  ): Promise<Comic> {
-    if (entity.categories) {
-      entity.categories = entity.categories.map(cat => {
-        const { id, name, slug } = cat;
-        return { id, name, slug } as any;
-      });
-    }
-    return entity;
+  protected async afterGetOne(entity: any, _where?: any, _options?: any): Promise<any> {
+    if (!entity) return null;
+    const categories = entity.categoryLinks?.map((link: any) => {
+      const cat = link.category;
+      return {
+        id: Number(cat.id),
+        name: cat.name,
+        slug: cat.slug,
+      };
+    }) || [];
+    return {
+      ...this.convertBigIntFields(entity),
+      categories,
+    };
   }
 
-  /**
-   * Hook trước khi tạo - xử lý slug và quan hệ
-   */
-  protected async beforeCreate(entity: Comic, createDto: DeepPartial<Comic>): Promise<boolean> {
-    await this.ensureSlug(createDto);
+  protected async beforeCreate(createDto: ComicBag['Create']): Promise<ComicBag['Create']> {
+    const payload: any = { ...createDto };
 
-    // Xử lý categories
-    const categoryIds = (createDto as any).category_ids as number[] | undefined;
-    const hasCategoryIds = categoryIds != null && Array.isArray(categoryIds) && categoryIds.length > 0;
+    // Handle slug
+    await this.ensureSlug(payload);
 
-    if (hasCategoryIds) {
-      const categories = await this.categoryRepo.find({ where: { id: In(categoryIds!) } });
-      (createDto as any).categories = categories;
+    // Handle category_ids - save for afterCreate
+    if (payload.category_ids !== undefined) {
+      this.tempCategoryIds = Array.isArray(payload.category_ids)
+        ? payload.category_ids.map((id: any) => Number(id)).filter((id: number) => !isNaN(id))
+        : [];
+    } else {
+      this.tempCategoryIds = null;
+    }
+    delete payload.category_ids;
+
+    // Convert BigInt fields
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) {
+      payload.created_user_id = BigInt(payload.created_user_id);
+    }
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) {
+      payload.updated_user_id = BigInt(payload.updated_user_id);
     }
 
-    delete (createDto as any).category_ids;
-    return true;
+    return payload;
   }
 
-  /**
-   * Sau khi tạo: tạo ComicStats record
-   */
-  protected async afterCreate(entity: Comic, createDto: DeepPartial<Comic>): Promise<void> {
-    // Tạo ComicStats record mặc định
-    const stats = this.statsRepo.create({
-      comic_id: entity.id,
-      view_count: 0,
-      follow_count: 0,
-      rating_count: 0,
-      rating_sum: 0,
+  protected async afterCreate(entity: any, _createDto: ComicBag['Create']): Promise<void> {
+    const comicId = Number(entity.id);
+
+    // Create ComicStats record
+    await this.prisma.comicStats.create({
+      data: {
+        comic_id: BigInt(comicId),
+        view_count: BigInt(0),
+        follow_count: BigInt(0),
+        rating_count: BigInt(0),
+        rating_sum: BigInt(0),
+      },
     });
-    await this.statsRepo.save(stats);
+
+    // Handle category_ids
+    if (this.tempCategoryIds && this.tempCategoryIds.length > 0) {
+      await this.syncCategories(comicId, this.tempCategoryIds);
+    }
+
+    this.tempCategoryIds = null;
+  }
+
+  protected async beforeUpdate(where: Prisma.ComicWhereInput, updateDto: ComicBag['Update']): Promise<ComicBag['Update']> {
+    const payload: any = { ...updateDto };
+
+    // Get current entity for slug check
+    const existing = await this.getOne(where);
+    if (existing) {
+      await this.ensureSlug(payload, Number(existing.id), existing.slug);
+    }
+
+    // Handle category_ids - save for afterUpdate
+    if (payload.category_ids !== undefined) {
+      this.tempCategoryIds = payload.category_ids === null
+        ? []
+        : Array.isArray(payload.category_ids)
+          ? payload.category_ids.map((id: any) => Number(id)).filter((id: number) => !isNaN(id))
+          : [];
+    } else {
+      this.tempCategoryIds = null;
+    }
+    delete payload.category_ids;
+
+    // Convert BigInt fields
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) {
+      payload.created_user_id = BigInt(payload.created_user_id);
+    }
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) {
+      payload.updated_user_id = BigInt(payload.updated_user_id);
+    }
+
+    return payload;
+  }
+
+  protected async afterUpdate(entity: any, _updateDto: ComicBag['Update']): Promise<void> {
+    const comicId = Number(entity.id);
+
+    // Sync categories if category_ids was provided
+    if (this.tempCategoryIds !== null) {
+      await this.syncCategories(comicId, this.tempCategoryIds);
+    }
+
+    this.tempCategoryIds = null;
   }
 
   /**
-   * Sau khi cập nhật: sync quan hệ nếu field ids được gửi lên
+   * Sync categories for a comic
    */
-  protected async afterUpdate(entity: Comic, updateDto: DeepPartial<Comic>): Promise<void> {
-    const categoryIdsProvided = (updateDto as any).category_ids !== undefined;
-    if (!categoryIdsProvided) return;
+  private async syncCategories(comicId: number, categoryIds: number[]) {
+    // Delete existing category links
+    await this.prisma.comicCategoryOnComic.deleteMany({
+      where: { comic_id: BigInt(comicId) },
+    });
 
-    const categoryIds = (updateDto as any).category_ids as number[] | null | undefined;
-    if (categoryIds != null && Array.isArray(categoryIds) && categoryIds.length > 0) {
-      const categories = await this.categoryRepo.find({ 
-        where: { id: In(categoryIds) },
-        select: ['id']
+    // Create new category links
+    if (categoryIds.length > 0) {
+      // Verify all category IDs exist
+      const categories = await this.prisma.comicCategory.findMany({
+        where: {
+          id: { in: categoryIds.map(id => BigInt(id)) },
+          deleted_at: null,
+        },
+        select: { id: true },
       });
+
       if (categories.length !== categoryIds.length) {
         throw new BadRequestException('Một hoặc nhiều category ID không hợp lệ');
       }
-      entity.categories = categories;
-      await this.repository.save(entity);
-    } else {
-      // Nếu category_ids là mảng rỗng, xóa tất cả categories
-      entity.categories = [];
-      await this.repository.save(entity);
+
+      await this.prisma.comicCategoryOnComic.createMany({
+        data: categoryIds.map(catId => ({
+          comic_id: BigInt(comicId),
+          comic_category_id: BigInt(catId),
+        })),
+      });
     }
-  }
-
-  /**
-   * Override getOne để load relations và verify ownership
-   */
-  override async getOne(where: any, options?: any): Promise<Comic | null> {
-    const adminOptions = {
-      ...options,
-      relations: ['categories', 'stats'],
-    };
-    const comic = await super.getOne(where, adminOptions);
-    // Comic không có group_id, skip ownership check
-    return comic;
-  }
-
-  /**
-   * Override beforeUpdate để verify ownership
-   */
-  protected override async beforeUpdate(
-    entity: Comic,
-    updateDto: DeepPartial<Comic>,
-    response?: any
-  ): Promise<boolean> {
-    // Comic không có group_id, skip ownership check
-    await this.ensureSlug(updateDto, entity.id, entity.slug);
-    if ('category_ids' in (updateDto as any)) {
-      delete (updateDto as any).category_ids;
-    }
-    return true;
-  }
-
-  /**
-   * Override beforeDelete để verify ownership
-   */
-  protected override async beforeDelete(
-    entity: Comic,
-    response?: any
-  ): Promise<boolean> {
-    // Comic không có group_id, skip ownership check
-    return true;
   }
 
   /**
    * Assign categories to comic
    */
   async assignCategories(comicId: number, categoryIds: number[]) {
-    const comic = await this.getOne({ id: comicId });
+    const comic = await this.getOne({ id: BigInt(comicId) });
     if (!comic) {
       throw new BadRequestException('Comic not found');
     }
 
-    if (categoryIds.length > 0) {
-      const categories = await this.categoryRepo.find({ 
-        where: { id: In(categoryIds) },
-        select: ['id']
-      });
-      if (categories.length !== categoryIds.length) {
-        throw new BadRequestException('Một hoặc nhiều category ID không hợp lệ');
-      }
-      comic.categories = categories;
-    } else {
-      comic.categories = [];
-    }
-
-    await this.repository.save(comic);
-    return this.getOne({ id: comicId });
+    await this.syncCategories(comicId, categoryIds);
+    return this.getOne({ id: BigInt(comicId) });
   }
 
   /**
    * Restore comic
    */
   async restore(id: number) {
-    const comic = await this.repository.findOne({
-      where: { id } as any,
-      withDeleted: true,
+    const comic = await this.prisma.comic.findFirst({
+      where: {
+        id: BigInt(id),
+        deleted_at: { not: null },
+      },
     });
 
     if (!comic) {
       throw new BadRequestException('Comic not found');
     }
 
-    await this.repository.restore(id);
-    await this.getOne({ id });
-    return { restored: true };
+    await this.prisma.comic.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: null },
+    });
+
+    return this.getOne({ id: BigInt(id) });
+  }
+
+  /**
+   * Ensure slug is generated from name if not provided
+   */
+  private async ensureSlug(data: any, excludeId?: number, currentSlug?: string): Promise<void> {
+    // If no slug but has name → generate from name
+    if (data.name && !data.slug) {
+      data.slug = StringUtil.toSlug(data.name);
+      return;
+    }
+
+    // If has slug → check uniqueness
+    if (data.slug) {
+      const normalizedSlug = StringUtil.toSlug(data.slug);
+      const normalizedCurrentSlug = currentSlug ? StringUtil.toSlug(currentSlug) : null;
+
+      // If slug unchanged, don't update it
+      if (normalizedCurrentSlug && normalizedSlug === normalizedCurrentSlug) {
+        delete data.slug;
+        return;
+      }
+
+      // Check if slug already exists
+      const existing = await this.prisma.comic.findFirst({
+        where: {
+          slug: normalizedSlug,
+          deleted_at: null,
+          ...(excludeId ? { id: { not: BigInt(excludeId) } } : {}),
+        },
+      });
+
+      if (existing) {
+        // Generate unique slug by appending number
+        let counter = 1;
+        let uniqueSlug = `${normalizedSlug}-${counter}`;
+        while (await this.prisma.comic.findFirst({
+          where: { slug: uniqueSlug, deleted_at: null },
+        })) {
+          counter++;
+          uniqueSlug = `${normalizedSlug}-${counter}`;
+        }
+        data.slug = uniqueSlug;
+      } else {
+        data.slug = normalizedSlug;
+      }
+    }
+  }
+
+  /**
+   * Convert BigInt fields to number for JSON serialization
+   */
+  private convertBigIntFields(entity: any): any {
+    if (!entity) return entity;
+    const converted = { ...entity };
+    if (converted.id) converted.id = Number(converted.id);
+    if (converted.created_user_id) converted.created_user_id = Number(converted.created_user_id);
+    if (converted.updated_user_id) converted.updated_user_id = Number(converted.updated_user_id);
+    if (converted.stats) {
+      converted.stats = {
+        ...converted.stats,
+        comic_id: Number(converted.stats.comic_id),
+        view_count: Number(converted.stats.view_count),
+        follow_count: Number(converted.stats.follow_count),
+        rating_count: Number(converted.stats.rating_count),
+        rating_sum: Number(converted.stats.rating_sum),
+      };
+    }
+    return converted;
+  }
+
+  /**
+   * Simple list giống getList nhưng limit mặc định lớn hơn
+   */
+  async getSimpleList(filters?: any, options?: any) {
+    const simpleOptions = {
+      ...options,
+      limit: options?.limit ?? 50,
+      maxLimit: options?.maxLimit ?? 1000,
+    };
+    return this.getList(filters, simpleOptions);
+  }
+
+  /**
+   * Wrapper update/delete để nhận id dạng number (giữ API cũ)
+   */
+  async update(id: number, data: ComicBag['Update']) {
+    return super.update({ id: BigInt(id) } as any, data);
+  }
+
+  async delete(id: number) {
+    return super.delete({ id: BigInt(id) } as any);
   }
 }
-

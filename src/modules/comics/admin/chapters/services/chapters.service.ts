@@ -1,129 +1,143 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
-import { Chapter } from '@/shared/entities/chapter.entity';
-import { ChapterPage } from '@/shared/entities/chapter-page.entity';
-import { CrudService } from '@/common/base/services/crud.service';
-import { verifyGroupOwnership } from '@/common/utils/group-ownership.util';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 import { ChapterStatus } from '@/shared/enums';
 import { ComicNotificationService } from '@/modules/comics/core/services/comic-notification.service';
 
+type ChapterBag = PrismaCrudBag & {
+  Model: Prisma.ChapterGetPayload<any>;
+  Where: Prisma.ChapterWhereInput;
+  Select: Prisma.ChapterSelect;
+  Include: Prisma.ChapterInclude;
+  OrderBy: Prisma.ChapterOrderByWithRelationInput;
+  Create: Prisma.ChapterUncheckedCreateInput & { pages?: Array<{ image_url: string; width?: number; height?: number; file_size?: number }> };
+  Update: Prisma.ChapterUncheckedUpdateInput;
+};
+
 @Injectable()
-export class ChaptersService extends CrudService<Chapter> {
-  private get pageRepo(): Repository<ChapterPage> {
-    return this.repository.manager.getRepository(ChapterPage);
-  }
+export class ChaptersService extends PrismaCrudService<ChapterBag> {
+  private tempPages: Array<{ image_url: string; width?: number; height?: number; file_size?: number }> | null = null;
 
   constructor(
-    @InjectRepository(Chapter) protected readonly repo: Repository<Chapter>,
+    private readonly prisma: PrismaService,
     private readonly notificationService: ComicNotificationService,
   ) {
-    super(repo);
+    super(prisma.chapter, ['id', 'chapter_index', 'created_at'], 'chapter_index:ASC');
   }
 
-  /**
-   * Override để load relations trong admin
-   */
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      relations: ['comic', 'pages'],
-    } as any;
+      include: {
+        comic: true,
+        pages: {
+          orderBy: { page_number: 'asc' },
+        },
+      },
+    };
   }
 
-  /**
-   * Hook trước khi tạo - validate chapter_index unique
-   */
-  protected async beforeCreate(entity: Chapter, createDto: DeepPartial<Chapter>): Promise<boolean> {
-    const comicId = (createDto as any).comic_id;
-    const chapterIndex = (createDto as any).chapter_index;
+  protected async beforeCreate(createDto: ChapterBag['Create']): Promise<ChapterBag['Create']> {
+    const payload: any = { ...createDto };
 
-    if (comicId && chapterIndex) {
-      const existing = await this.repo.findOne({
-        where: { comic_id: comicId, chapter_index: chapterIndex } as any,
+    // Validate chapter_index unique
+    const comicId = payload.comic_id;
+    const chapterIndex = payload.chapter_index;
+
+    if (comicId && chapterIndex !== undefined) {
+      const existing = await this.prisma.chapter.findFirst({
+        where: {
+          comic_id: BigInt(comicId),
+          chapter_index: chapterIndex,
+          deleted_at: null,
+        },
       });
       if (existing) {
         throw new BadRequestException(`Chapter với index ${chapterIndex} đã tồn tại trong comic này`);
       }
     }
 
-    return true;
+    // Save pages for afterCreate
+    if (payload.pages !== undefined) {
+      this.tempPages = Array.isArray(payload.pages) ? payload.pages : null;
+    } else {
+      this.tempPages = null;
+    }
+    delete payload.pages;
+
+    // Convert BigInt fields
+    if (payload.comic_id !== undefined) payload.comic_id = BigInt(payload.comic_id);
+    if (payload.team_id !== undefined && payload.team_id !== null) payload.team_id = BigInt(payload.team_id);
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) payload.created_user_id = BigInt(payload.created_user_id);
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) payload.updated_user_id = BigInt(payload.updated_user_id);
+
+    return payload;
   }
 
-  /**
-   * Sau khi tạo: xử lý pages nếu có và notify nếu published
-   */
-  protected async afterCreate(entity: Chapter, createDto: DeepPartial<Chapter>): Promise<void> {
-    const pages = (createDto as any).pages as any[] | undefined;
-    if (pages && Array.isArray(pages) && pages.length > 0) {
-      const pageEntities = pages.map((page, index) =>
-        this.pageRepo.create({
-          chapter_id: entity.id,
+  protected async afterCreate(entity: any, _createDto: ChapterBag['Create']): Promise<void> {
+    const chapterId = Number(entity.id);
+
+    // Create pages if provided
+    if (this.tempPages && this.tempPages.length > 0) {
+      await this.prisma.chapterPage.createMany({
+        data: this.tempPages.map((page, index) => ({
+          chapter_id: BigInt(chapterId),
           page_number: index + 1,
           image_url: page.image_url,
           width: page.width,
           height: page.height,
-          file_size: page.file_size,
-        })
-      );
-      await this.pageRepo.save(pageEntities);
+          file_size: page.file_size ? BigInt(page.file_size) : null,
+        })),
+      });
     }
 
-    // Notify followers nếu chapter được publish ngay
+    // Notify followers if chapter is published
     if (entity.status === ChapterStatus.PUBLISHED) {
       await this.notificationService.notifyNewChapter(entity);
     }
+
+    this.tempPages = null;
   }
 
-  /**
-   * Override getOne để load relations và verify ownership
-   */
-  override async getOne(where: any, options?: any): Promise<Chapter | null> {
-    const adminOptions = {
-      ...options,
-      relations: ['comic', 'pages'],
-    };
-    const chapter = await super.getOne(where, adminOptions);
-    // Chapter có team_id (group_id), nhưng có thể null, skip ownership check
-    return chapter;
-  }
+  protected async beforeUpdate(where: Prisma.ChapterWhereInput, updateDto: ChapterBag['Update']): Promise<ChapterBag['Update']> {
+    const payload: any = { ...updateDto };
 
-  /**
-   * Override beforeUpdate để verify ownership
-   */
-  protected override async beforeUpdate(
-    entity: Chapter,
-    updateDto: DeepPartial<Chapter>,
-    response?: any
-  ): Promise<boolean> {
-    // Chapter có team_id (group_id), nhưng có thể null, skip ownership check
-    
-    // Validate chapter_index unique nếu có thay đổi
-    if ((updateDto as any).chapter_index !== undefined && (updateDto as any).chapter_index !== entity.chapter_index) {
-      const existing = await this.repo.findOne({
-        where: { comic_id: entity.comic_id, chapter_index: (updateDto as any).chapter_index } as any,
-      });
-      if (existing && existing.id !== entity.id) {
-        throw new BadRequestException(`Chapter với index ${(updateDto as any).chapter_index} đã tồn tại trong comic này`);
+    // Validate chapter_index unique if changed
+    if (payload.chapter_index !== undefined) {
+      const existing = await this.getOne(where);
+      if (existing && payload.chapter_index !== existing.chapter_index) {
+        const comicId = existing.comic_id ? Number(existing.comic_id) : null;
+        if (comicId) {
+          const duplicate = await this.prisma.chapter.findFirst({
+            where: {
+              comic_id: BigInt(comicId),
+              chapter_index: payload.chapter_index,
+              deleted_at: null,
+              id: { not: BigInt(Number(existing.id)) },
+            },
+          });
+          if (duplicate) {
+            throw new BadRequestException(`Chapter với index ${payload.chapter_index} đã tồn tại trong comic này`);
+          }
+        }
       }
     }
-    
-    return true;
+
+    // Convert BigInt fields
+    if (payload.comic_id !== undefined) payload.comic_id = BigInt(payload.comic_id);
+    if (payload.team_id !== undefined && payload.team_id !== null) payload.team_id = BigInt(payload.team_id);
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) payload.created_user_id = BigInt(payload.created_user_id);
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) payload.updated_user_id = BigInt(payload.updated_user_id);
+
+    return payload;
   }
 
-  /**
-   * Override afterUpdate để notify khi status thay đổi từ draft -> published
-   */
-  protected override async afterUpdate(
-    entity: Chapter,
-    updateDto: DeepPartial<Chapter>,
-    response?: any
-  ): Promise<void> {
-    // Notify nếu status thay đổi sang published
+  protected async afterUpdate(entity: any, updateDto: ChapterBag['Update']): Promise<void> {
+    // Notify if status changed to published
     if ((updateDto as any).status === ChapterStatus.PUBLISHED) {
-      // Reload entity để có đầy đủ thông tin
-      const updatedChapter = await this.getOne({ id: entity.id });
+      const updatedChapter = await this.getOne({ id: BigInt(Number(entity.id)) });
       if (updatedChapter) {
         await this.notificationService.notifyNewChapter(updatedChapter);
       }
@@ -131,18 +145,7 @@ export class ChaptersService extends CrudService<Chapter> {
   }
 
   /**
-   * Override beforeDelete để verify ownership
-   */
-  protected override async beforeDelete(
-    entity: Chapter,
-    response?: any
-  ): Promise<boolean> {
-    // Chapter có team_id (group_id), nhưng có thể null, skip ownership check
-    return true;
-  }
-
-  /**
-   * Upload/Update pages cho chapter
+   * Upload/Update pages for chapter
    */
   async updatePages(chapterId: number, pages: Array<{
     image_url: string;
@@ -150,65 +153,107 @@ export class ChaptersService extends CrudService<Chapter> {
     height?: number;
     file_size?: number;
   }>) {
-    const chapter = await this.getOne({ id: chapterId });
+    const chapter = await this.getOne({ id: BigInt(chapterId) });
     if (!chapter) {
       throw new BadRequestException('Chapter not found');
     }
 
-    // Chapter có team_id (group_id), nhưng có thể null, skip ownership check
+    // Delete old pages
+    await this.prisma.chapterPage.deleteMany({
+      where: { chapter_id: BigInt(chapterId) },
+    });
 
-    // Xóa pages cũ
-    await this.pageRepo.delete({ chapter_id: chapterId });
-
-    // Tạo pages mới
+    // Create new pages
     if (pages && pages.length > 0) {
-      const pageEntities = pages.map((page, index) =>
-        this.pageRepo.create({
-          chapter_id: chapterId,
+      await this.prisma.chapterPage.createMany({
+        data: pages.map((page, index) => ({
+          chapter_id: BigInt(chapterId),
           page_number: index + 1,
           image_url: page.image_url,
           width: page.width,
           height: page.height,
-          file_size: page.file_size,
-        })
-      );
-      await this.pageRepo.save(pageEntities);
+          file_size: page.file_size ? BigInt(page.file_size) : null,
+        })),
+      });
     }
 
-    return this.getOne({ id: chapterId });
+    return this.getOne({ id: BigInt(chapterId) });
   }
 
   /**
-   * Get pages của chapter
+   * Get pages of chapter
    */
   async getPages(chapterId: number) {
-    const chapter = await this.getOne({ id: chapterId });
+    const chapter = await this.getOne({ id: BigInt(chapterId) });
     if (!chapter) {
       throw new BadRequestException('Chapter not found');
     }
 
-    return this.pageRepo.find({
-      where: { chapter_id: chapterId },
-      order: { page_number: 'ASC' },
+    const pages = await this.prisma.chapterPage.findMany({
+      where: { chapter_id: BigInt(chapterId) },
+      orderBy: { page_number: 'asc' },
     });
+
+    return pages.map(page => ({
+      ...page,
+      id: Number(page.id),
+      chapter_id: Number(page.chapter_id),
+      file_size: page.file_size ? Number(page.file_size) : null,
+    }));
   }
 
   /**
    * Restore chapter
    */
   async restore(id: number) {
-    const chapter = await this.repo.findOne({
-      where: { id } as any,
-      withDeleted: true,
+    const chapter = await this.prisma.chapter.findFirst({
+      where: {
+        id: BigInt(id),
+        deleted_at: { not: null },
+      },
     });
 
     if (!chapter) {
       throw new BadRequestException('Chapter not found');
     }
 
-    await this.repo.restore(id);
-    await this.getOne({ id });
-    return { restored: true };
+    await this.prisma.chapter.update({
+      where: { id: BigInt(id) },
+      data: { deleted_at: null },
+    });
+
+    return this.getOne({ id: BigInt(id) });
+  }
+
+  protected override async afterGetOne(entity: any, _where?: any, _options?: any): Promise<any> {
+    if (!entity) return null;
+    return this.convertBigIntFields(entity);
+  }
+
+  protected override async afterGetList(data: any[], _filters?: any, _options?: any): Promise<any[]> {
+    return data.map(item => this.convertBigIntFields(item));
+  }
+
+  private convertBigIntFields(entity: any): any {
+    if (!entity) return entity;
+    const converted = { ...entity };
+    if (converted.id) converted.id = Number(converted.id);
+    if (converted.comic_id) converted.comic_id = Number(converted.comic_id);
+    if (converted.team_id) converted.team_id = Number(converted.team_id);
+    if (converted.view_count) converted.view_count = Number(converted.view_count);
+    if (converted.created_user_id) converted.created_user_id = Number(converted.created_user_id);
+    if (converted.updated_user_id) converted.updated_user_id = Number(converted.updated_user_id);
+    if (converted.comic) {
+      converted.comic = this.convertBigIntFields(converted.comic);
+    }
+    if (converted.pages) {
+      converted.pages = converted.pages.map((page: any) => ({
+        ...page,
+        id: Number(page.id),
+        chapter_id: Number(page.chapter_id),
+        file_size: page.file_size ? Number(page.file_size) : null,
+      }));
+    }
+    return converted;
   }
 }
-

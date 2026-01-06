@@ -1,120 +1,143 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
-import { Menu } from '@/shared/entities/menu.entity';
-import { Permission } from '@/shared/entities/permission.entity';
-import { CrudService } from '@/common/base/services/crud.service';
-import { ResponseRef } from '@/common/base/utils/response-ref.helper';
+import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
 import { MenuTreeItem } from '@/modules/menu/admin/menu/interfaces/menu-tree-item.interface';
 
+type MenuBag = PrismaCrudBag & {
+  Model: any;
+  Where: any;
+  Select: any;
+  Include: any;
+  OrderBy: any;
+  Create: any & { parent_id?: number | null; required_permission_id?: number | null };
+  Update: any & { parent_id?: number | null; required_permission_id?: number | null };
+};
+
 @Injectable()
-export class MenuService extends CrudService<Menu> {
+export class MenuService extends PrismaCrudService<MenuBag> {
   private readonly logger = new Logger(MenuService.name);
 
-  private get permRepo(): Repository<Permission> {
-    return this.repository.manager.getRepository(Permission);
-  }
-
   constructor(
-    @InjectRepository(Menu) protected readonly repository: Repository<Menu>,
+    private readonly prisma: PrismaService,
     @Inject(RbacService) private readonly rbacService: RbacService,
   ) {
-    super(repository);
+    super(prisma.menu, ['id', 'code', 'sort_order', 'created_at'], 'sort_order:ASC');
   }
 
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     return {
       ...base,
-      relations: ['parent', 'children', 'required_permission', 'menu_permissions'],
-    } as any;
+      include: {
+        parent: true,
+        children: true,
+        required_permission: true,
+        menu_permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    };
   }
 
-  protected async beforeCreate(
-    entity: Menu,
-    createDto: DeepPartial<Menu>,
-    response?: ResponseRef<Menu | null>
-  ): Promise<boolean> {
-    const code = (createDto as any).code;
+  protected async beforeCreate(createDto: MenuBag['Create']): Promise<MenuBag['Create']> {
+    const payload: any = { ...createDto };
+
+    // Check code uniqueness
+    const code = payload.code;
     if (code) {
       const exists = await this.getOne({ code } as any);
       if (exists) {
-        if (response) {
-          response.message = 'Menu code already exists';
-          response.code = 'MENU_CODE_EXISTS';
-        }
-        return false;
+        throw new BadRequestException('Menu code already exists');
       }
     }
 
-    const parentId = (createDto as any).parent_id;
-    if (parentId) {
-      const parent = await this.getOne({ id: parentId } as any);
-      if (parent) {
-        (createDto as any).parent = parent;
-      }
-      delete (createDto as any).parent_id;
+    // Handle parent_id
+    const parentId = payload.parent_id;
+    if (parentId !== undefined && parentId !== null) {
+      payload.parent_id = BigInt(parentId);
+    } else if (parentId === null) {
+      payload.parent_id = null;
+    } else {
+      delete payload.parent_id;
     }
 
-    const permissionId = (createDto as any).required_permission_id;
-    if (permissionId) {
-      const permission = await this.permRepo.findOne({ where: { id: permissionId } });
-      if (permission) {
-        (createDto as any).required_permission = permission;
-      }
-      delete (createDto as any).required_permission_id;
+    // Handle required_permission_id
+    const permissionId = payload.required_permission_id;
+    if (permissionId !== undefined && permissionId !== null) {
+      payload.required_permission_id = BigInt(permissionId);
+    } else if (permissionId === null) {
+      payload.required_permission_id = null;
+    } else {
+      delete payload.required_permission_id;
     }
 
-    return true;
+    // Convert other BigInt fields
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) {
+      payload.created_user_id = BigInt(payload.created_user_id);
+    }
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) {
+      payload.updated_user_id = BigInt(payload.updated_user_id);
+    }
+
+    return payload;
   }
 
-  protected async beforeUpdate(
-    entity: Menu,
-    updateDto: DeepPartial<Menu>,
-    response?: ResponseRef<Menu | null>
-  ): Promise<boolean> {
-    const code = (updateDto as any).code;
-    if (code && code !== entity.code) {
-      const exists = await this.getOne({ code } as any);
-      if (exists) {
-        if (response) {
-          response.message = 'Menu code already exists';
-          response.code = 'MENU_CODE_EXISTS';
+  protected async beforeUpdate(where: any, updateDto: MenuBag['Update']): Promise<MenuBag['Update']> {
+    const payload: any = { ...updateDto };
+
+    // Check code uniqueness if changed
+    const code = payload.code;
+    if (code) {
+      const existing = await this.getOne(where);
+      if (existing && code !== existing.code) {
+        const exists = await this.prisma.menu.findFirst({
+          where: { code, deleted_at: null },
+        });
+        if (exists) {
+          throw new BadRequestException('Menu code already exists');
         }
-        return false;
       }
     }
 
-    const parentId = (updateDto as any).parent_id;
+    // Handle parent_id
+    const parentId = payload.parent_id;
     if (parentId !== undefined) {
       if (parentId === null) {
-        (updateDto as any).parent = null;
+        payload.parent_id = null;
       } else {
-        const parent = await this.getOne({ id: parentId } as any);
-        if (parent) {
-          (updateDto as any).parent = parent;
-        }
+        payload.parent_id = BigInt(parentId);
       }
-      delete (updateDto as any).parent_id;
+    } else {
+      delete payload.parent_id;
     }
 
-    const permissionId = (updateDto as any).required_permission_id;
+    // Handle required_permission_id
+    const permissionId = payload.required_permission_id;
     if (permissionId !== undefined) {
       if (permissionId === null) {
-        (updateDto as any).required_permission = null;
+        payload.required_permission_id = null;
       } else {
-        const permission = await this.permRepo.findOne({ where: { id: permissionId } });
-        if (permission) {
-          (updateDto as any).required_permission = permission;
-        }
+        payload.required_permission_id = BigInt(permissionId);
       }
-      delete (updateDto as any).required_permission_id;
+    } else {
+      delete payload.required_permission_id;
     }
 
-    return true;
+    // Convert other BigInt fields
+    if (payload.created_user_id !== undefined && payload.created_user_id !== null) {
+      payload.created_user_id = BigInt(payload.created_user_id);
+    }
+    if (payload.updated_user_id !== undefined && payload.updated_user_id !== null) {
+      payload.updated_user_id = BigInt(payload.updated_user_id);
+    }
+
+    return payload;
   }
 
   /**
@@ -122,12 +145,16 @@ export class MenuService extends CrudService<Menu> {
    */
   async getTree(): Promise<MenuTreeItem[]> {
     const result = await this.getList(
-      {},
+      { deleted_at: null },
       {
         page: 1,
         limit: 10000, // Get all menus for tree
         sort: 'sort_order:ASC',
-        relations: ['parent', 'children', 'required_permission'],
+        include: {
+          parent: true,
+          children: true,
+          required_permission: true,
+        },
       }
     );
 
@@ -144,7 +171,7 @@ export class MenuService extends CrudService<Menu> {
     const includeInactive = options?.include_inactive || false;
     const flatten = options?.flatten || false;
     
-    // ✅ MỚI: Lấy groupId từ RequestContext (group-based)
+    // Lấy groupId từ RequestContext (group-based)
     const groupId = RequestContext.get<number | null>('groupId');
     
     // Lấy context từ RequestContext hoặc từ group
@@ -153,19 +180,20 @@ export class MenuService extends CrudService<Menu> {
     
     if (groupId) {
       // Nếu có groupId, lấy context từ group
-      const groupRepo = this.repository.manager.getRepository('Group');
-      const group = await groupRepo.findOne({ 
-        where: { id: groupId },
-        relations: ['context']
-      } as any);
+      const group = await this.prisma.group.findFirst({
+        where: { id: BigInt(groupId) },
+        include: { context: true },
+      });
       
-      if (group && group.context) {
+      if (group?.context) {
         context = group.context;
         contextType = group.context.type;
-      } else if (group && group.context_id) {
-        const contextRepo = this.repository.manager.getRepository('Context');
-        context = await contextRepo.findOne({ where: { id: group.context_id } } as any);
-        contextType = context?.type || null;
+      } else if (group?.context_id) {
+        const contextData = await this.prisma.context.findFirst({
+          where: { id: group.context_id },
+        });
+        context = contextData;
+        contextType = contextData?.type || null;
       }
     } else {
       // Nếu không có groupId, lấy từ RequestContext
@@ -178,28 +206,33 @@ export class MenuService extends CrudService<Menu> {
       contextType = 'system';
     }
 
-    // Query menus using QueryBuilder to properly load nested relations
-    // ✅ MỚI: Không filter theo context prefix nữa, chỉ filter theo permission
-    const queryBuilder = this.repository.createQueryBuilder('menu')
-      .leftJoinAndSelect('menu.parent', 'parent')
-      .leftJoinAndSelect('menu.children', 'children')
-      .leftJoinAndSelect('menu.required_permission', 'required_permission')
-      .leftJoinAndSelect('menu.menu_permissions', 'menu_permissions')
-      .leftJoinAndSelect('menu_permissions.permission', 'permission')
-      .where('menu.show_in_menu = :showInMenu', { showInMenu: true });
-
-    this.logger.debug(`Getting all menus for user ${userId} in groupId=${groupId}, contextType=${contextType}`);
+    // Query menus with relations
+    const where: any = {
+      show_in_menu: true,
+      deleted_at: null,
+    };
 
     if (!includeInactive) {
-      queryBuilder.andWhere('menu.status = :status', { status: BasicStatus.Active });
+      where.status = BasicStatus.Active;
     }
 
-    queryBuilder.orderBy('menu.sort_order', 'ASC');
-
-    const menus = await queryBuilder.getMany();
+    const menus = await this.prisma.menu.findMany({
+      where,
+      include: {
+        parent: true,
+        children: true,
+        required_permission: true,
+        menu_permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+      orderBy: { sort_order: 'asc' },
+    });
     
     // Log menu codes để debug
-    const menuCodes = menus.map(m => m.code).join(', ');
+    const menuCodes = menus.map((m: any) => m.code).join(', ');
     this.logger.debug(`Query result: Found ${menus.length} menus with codes: [${menuCodes}]`);
 
     // Nếu không có menu nào, trả về empty
@@ -210,28 +243,28 @@ export class MenuService extends CrudService<Menu> {
 
     this.logger.debug(`Found ${menus.length} menus, checking permissions for user ${userId} in groupId ${groupId}`);
     
-    // ✅ MỚI: Lấy tất cả permissions của user trong group để check
+    // Lấy tất cả permissions của user trong group để check
     // Build set of all permissions user has
     const allPerms = new Set<string>();
     const testPerms = menus
-      .filter(m => m.required_permission?.code || m.menu_permissions?.length)
-      .flatMap(m => [
+      .filter((m: any) => m.required_permission?.code || m.menu_permissions?.length)
+      .flatMap((m: any) => [
         ...(m.required_permission?.code ? [m.required_permission.code] : []),
-        ...(m.menu_permissions?.map(mp => mp.permission?.code).filter(Boolean) || []),
+        ...(m.menu_permissions?.map((mp: any) => mp.permission?.code).filter(Boolean) || []),
       ]);
 
     // Check từng permission một cách hiệu quả
     for (const perm of new Set(testPerms)) {
-      // ✅ Dùng group-based permissions: user lấy menu dựa vào quyền trong group
-      const hasPerm = await this.rbacService.userHasPermissionsInGroup(userId, groupId ?? null, [perm]);
+      // Dùng group-based permissions: user lấy menu dựa vào quyền trong group
+      const hasPerm = await this.rbacService.userHasPermissionsInGroup(userId, groupId ?? null, [perm as string]);
       if (hasPerm) {
-        allPerms.add(perm);
+        allPerms.add(perm as string);
       }
     }
 
     // Filter menus by permissions (không có bypass)
-    // ✅ MỚI: Mỗi menu chỉ có 1 permission (required_permission), không cần check menu_permissions nữa
-    let filteredMenus = menus.filter(menu => {
+    // Mỗi menu chỉ có 1 permission (required_permission), không cần check menu_permissions nữa
+    let filteredMenus = menus.filter((menu: any) => {
       // Menu public luôn hiển thị
       if (menu.is_public) {
         this.logger.debug(`Menu ${menu.code}: PUBLIC - showing`);
@@ -247,7 +280,7 @@ export class MenuService extends CrudService<Menu> {
         return true;
       }
       
-      // ✅ MỚI: Menu có required_permission → check user có permission trong group không
+      // Menu có required_permission → check user có permission trong group không
       if (menu.required_permission?.code) {
         const hasRequiredPerm = allPerms.has(menu.required_permission.code);
         this.logger.debug(`Menu ${menu.code}: required_permission=${menu.required_permission.code}, has=${hasRequiredPerm}, userPerms=[${Array.from(allPerms).join(', ')}]`);
@@ -258,8 +291,8 @@ export class MenuService extends CrudService<Menu> {
       
       // Fallback: Nếu vẫn dùng menu_permissions (legacy)
       if (menu.menu_permissions && menu.menu_permissions.length > 0) {
-        const menuPermCodes = menu.menu_permissions.map(mp => mp.permission?.code).filter(Boolean);
-        const hasAnyPerm = menuPermCodes.some(code => allPerms.has(code));
+        const menuPermCodes = menu.menu_permissions.map((mp: any) => mp.permission?.code).filter(Boolean);
+        const hasAnyPerm = menuPermCodes.some((code: string) => allPerms.has(code));
         this.logger.debug(`Menu ${menu.code}: menu_permissions=[${menuPermCodes.join(', ')}], hasAny=${hasAnyPerm}`);
         if (hasAnyPerm) {
           return true;
@@ -270,7 +303,7 @@ export class MenuService extends CrudService<Menu> {
       return false;
     });
 
-    // ✅ MỚI: Filter các menu system-only (chỉ hiển thị trong system group)
+    // Filter các menu system-only (chỉ hiển thị trong system group)
     // Các menu này chỉ hiển thị khi context type là 'system'
     if (contextType !== 'system') {
       const systemOnlyPermissions = [
@@ -294,13 +327,13 @@ export class MenuService extends CrudService<Menu> {
       
       filteredMenus = filteredMenus.filter(menu => {
         // Check theo permission code
-        if (menu.required_permission?.code && systemOnlyPermissions.includes(menu.required_permission.code)) {
+        if (menu.required_permission?.code && systemOnlyPermissions.includes(menu.required_permission.code as string)) {
           this.logger.debug(`Menu ${menu.code}: SYSTEM-ONLY (permission=${menu.required_permission.code}) - filtered out for contextType=${contextType}`);
           return false;
         }
         
         // Check theo menu code
-        if (systemOnlyMenuCodes.includes(menu.code)) {
+        if (systemOnlyMenuCodes.includes(menu.code as string)) {
           this.logger.debug(`Menu ${menu.code}: SYSTEM-ONLY (menu code) - filtered out for contextType=${contextType}`);
           return false;
         }
@@ -310,7 +343,7 @@ export class MenuService extends CrudService<Menu> {
     }
 
     this.logger.debug(`Filtered ${filteredMenus.length} menus from ${menus.length} total menus for user ${userId} in groupId ${groupId}, contextType=${contextType}`);
-    const filteredMenuCodes = filteredMenus.map(m => m.code).join(', ');
+    const filteredMenuCodes = filteredMenus.map((m: any) => m.code).join(', ');
     this.logger.debug(`Filtered menu codes: [${filteredMenuCodes}]`);
 
     const tree = this.buildTree(filteredMenus);
@@ -321,28 +354,31 @@ export class MenuService extends CrudService<Menu> {
   /**
    * Build tree structure from flat menu list
    */
-  private buildTree(menus: Menu[]): MenuTreeItem[] {
+  private buildTree(menus: any[]): MenuTreeItem[] {
     const menuMap = new Map<number, MenuTreeItem>();
     const rootMenus: MenuTreeItem[] = [];
 
-    menus.forEach(menu => {
-      menuMap.set(menu.id, {
-        id: menu.id,
-        code: menu.code,
-        name: menu.name,
-        path: menu.path,
-        icon: menu.icon,
-        type: menu.type,
-        status: menu.status,
+    menus.forEach((menu: any) => {
+      const menuId = Number(menu.id);
+      menuMap.set(menuId, {
+        id: menuId,
+        code: menu.code as string,
+        name: menu.name as string,
+        path: menu.path as string | null,
+        icon: menu.icon as string | null,
+        type: menu.type as string,
+        status: menu.status as string,
         children: [],
         allowed: true,
       });
     });
 
-    menus.forEach(menu => {
-      const item = menuMap.get(menu.id)!;
-      if (menu.parent_id && menuMap.has(menu.parent_id)) {
-        menuMap.get(menu.parent_id)!.children!.push(item);
+    menus.forEach((menu: any) => {
+      const menuId = Number(menu.id);
+      const item = menuMap.get(menuId)!;
+      const parentId = menu.parent_id ? Number(menu.parent_id) : null;
+      if (parentId && menuMap.has(parentId)) {
+        menuMap.get(parentId)!.children!.push(item);
       } else {
         rootMenus.push(item);
       }
@@ -350,8 +386,8 @@ export class MenuService extends CrudService<Menu> {
 
     const sortTree = (items: MenuTreeItem[]) => {
       items.sort((a, b) => {
-        const menuA = menus.find(m => m.id === a.id);
-        const menuB = menus.find(m => m.id === b.id);
+        const menuA = menus.find((m: any) => Number(m.id) === a.id);
+        const menuB = menus.find((m: any) => Number(m.id) === b.id);
         return (menuA?.sort_order || 0) - (menuB?.sort_order || 0);
       });
       items.forEach(item => item.children && sortTree(item.children));
@@ -375,5 +411,80 @@ export class MenuService extends CrudService<Menu> {
     traverse(tree);
     return result;
   }
-}
 
+  /**
+   * Override getOne to handle BigInt conversion
+   */
+  protected override async afterGetOne(entity: any, _where?: any, _options?: any): Promise<any> {
+    if (!entity) return null;
+    return this.convertBigIntFields(entity);
+  }
+
+  /**
+   * Override getList to handle BigInt conversion
+   */
+  protected override async afterGetList(data: any[], _filters?: any, _options?: any): Promise<any[]> {
+    return data.map(item => this.convertBigIntFields(item));
+  }
+
+  /**
+   * Convert BigInt fields to number for JSON serialization
+   */
+  private convertBigIntFields(entity: any): any {
+    if (!entity) return entity;
+    const converted = { ...entity };
+    if (converted.id) converted.id = Number(converted.id);
+    if (converted.parent_id) converted.parent_id = Number(converted.parent_id);
+    if (converted.required_permission_id) converted.required_permission_id = Number(converted.required_permission_id);
+    if (converted.created_user_id) converted.created_user_id = Number(converted.created_user_id);
+    if (converted.updated_user_id) converted.updated_user_id = Number(converted.updated_user_id);
+    if (converted.children) {
+      converted.children = converted.children.map((child: any) => this.convertBigIntFields(child));
+    }
+    if (converted.parent) {
+      converted.parent = this.convertBigIntFields(converted.parent);
+    }
+    if (converted.menu_permissions) {
+      converted.menu_permissions = converted.menu_permissions.map((mp: any) => ({
+        ...mp,
+        id: mp.id ? Number(mp.id) : mp.id,
+        menu_id: mp.menu_id ? Number(mp.menu_id) : mp.menu_id,
+        permission_id: mp.permission_id ? Number(mp.permission_id) : mp.permission_id,
+      }));
+    }
+    return converted;
+  }
+
+  /**
+   * Simple list giống getList nhưng limit mặc định lớn hơn
+   */
+  async getSimpleList(filters?: any, options?: any) {
+    const simpleOptions = {
+      ...options,
+      limit: options?.limit ?? 50,
+      maxLimit: options?.maxLimit ?? 1000,
+    };
+    return this.getList(filters, simpleOptions);
+  }
+
+  /**
+   * Wrapper create/update/delete để nhận id dạng number (giữ API cũ)
+   */
+  async createWithUser(data: MenuBag['Create'], userId?: number) {
+    if (userId) {
+      (data as any).created_user_id = userId;
+    }
+    return super.create(data);
+  }
+
+  async updateById(id: number, data: MenuBag['Update'], userId?: number) {
+    if (userId) {
+      (data as any).updated_user_id = userId;
+    }
+    return super.update({ id: BigInt(id) } as any, data);
+  }
+
+  async deleteById(id: number) {
+    return super.delete({ id: BigInt(id) } as any);
+  }
+}
