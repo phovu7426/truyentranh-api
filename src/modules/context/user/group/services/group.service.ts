@@ -20,7 +20,7 @@ export class UserGroupService {
       where: { id: BigInt(groupId), status: 'active' as any },
     });
     if (!group) return false;
-    return group.owner_id === userId;
+    return group.owner_id != null && Number(group.owner_id) === userId;
   }
 
   /**
@@ -33,7 +33,7 @@ export class UserGroupService {
     if (!group) return false;
 
     // Owner luôn có quyền
-    if (group.owner_id === userId) return true;
+    if (group.owner_id != null && Number(group.owner_id) === userId) return true;
 
     // Check permission trong group trực tiếp
     return this.rbacService.userHasPermissionsInGroup(userId, groupId, [
@@ -214,7 +214,7 @@ export class UserGroupService {
     }
 
     // Không cho phép xóa owner
-    if (group.owner_id === memberUserId) {
+    if (group.owner_id != null && Number(group.owner_id) === memberUserId) {
       throw new BadRequestException('Cannot remove owner from group');
     }
 

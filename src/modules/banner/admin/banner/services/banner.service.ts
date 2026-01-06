@@ -1,107 +1,119 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial, LessThanOrEqual, MoreThanOrEqual, IsNull, Or } from 'typeorm';
-import { Banner } from '@/shared/entities/banner.entity';
-import { BannerLocation } from '@/shared/entities/banner-location.entity';
+import { Prisma, Banner } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
-import { CrudService } from '@/common/base/services/crud.service';
-import { Filters, Options } from '@/common/base/interfaces/list.interface';
-import { ResponseRef } from '@/common/base/utils/response-ref.helper';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
+
+type AdminBannerBag = PrismaCrudBag & {
+    Model: Banner;
+    Where: Prisma.BannerWhereInput;
+    Select: Prisma.BannerSelect;
+    Include: Prisma.BannerInclude;
+    OrderBy: Prisma.BannerOrderByWithRelationInput;
+    Create: Prisma.BannerCreateInput;
+    Update: Prisma.BannerUpdateInput;
+};
 
 @Injectable()
-export class BannerService extends CrudService<Banner> {
+export class BannerService extends PrismaCrudService<AdminBannerBag> {
     constructor(
-        @InjectRepository(Banner)
-        protected readonly bannerRepository: Repository<Banner>,
-        @InjectRepository(BannerLocation)
-        private readonly bannerLocationRepository: Repository<BannerLocation>,
+        private readonly prisma: PrismaService,
     ) {
-        super(bannerRepository);
+        super(prisma.banner, ['id', 'created_at', 'sort_order'], 'id:DESC');
     }
 
     /**
      * Hook: Validate location_id trước khi tạo banner
      */
-    protected async beforeCreate(
-        entity: Banner,
-        createDto: DeepPartial<Banner>,
-        response?: ResponseRef<Banner | null>
-    ): Promise<boolean> {
-        if (createDto.location_id) {
-            const location = await this.bannerLocationRepository.findOne({
-                where: { id: createDto.location_id as any },
+    protected override async beforeCreate(createDto: AdminBannerBag['Create']): Promise<AdminBannerBag['Create']> {
+        const payload = { ...createDto };
+
+        if (payload.location_id) {
+            const location = await this.prisma.bannerLocation.findFirst({
+                where: { id: BigInt(payload.location_id) },
             });
 
             if (!location) {
-                throw new NotFoundException(`Vị trí banner với ID ${createDto.location_id} không tồn tại`);
+                throw new NotFoundException(`Vị trí banner với ID ${payload.location_id} không tồn tại`);
             }
         }
 
-        return true;
+        return payload;
     }
 
     /**
      * Hook: Validate location_id trước khi cập nhật banner
      */
-    protected async beforeUpdate(
-        entity: Banner,
-        updateDto: DeepPartial<Banner>,
-        response?: ResponseRef<Banner | null>
-    ): Promise<boolean> {
-        if (updateDto.location_id && updateDto.location_id !== entity.location_id) {
-            const location = await this.bannerLocationRepository.findOne({
-                where: { id: updateDto.location_id as any },
+    protected override async beforeUpdate(where: Prisma.BannerWhereInput, updateDto: AdminBannerBag['Update']): Promise<AdminBannerBag['Update']> {
+        const payload = { ...updateDto };
+        const id = (where as any).id ? BigInt((where as any).id) : null;
+        const current = id
+            ? await this.prisma.banner.findFirst({ where: { id } })
+            : null;
+
+        if (payload.location_id && (!current || payload.location_id !== Number(current.location_id))) {
+            const location = await this.prisma.bannerLocation.findFirst({
+                where: { id: BigInt(payload.location_id) },
             });
 
             if (!location) {
-                throw new NotFoundException(`Vị trí banner với ID ${updateDto.location_id} không tồn tại`);
+                throw new NotFoundException(`Vị trí banner với ID ${payload.location_id} không tồn tại`);
             }
         }
 
-        return true;
+        return payload;
     }
 
     /**
      * Override prepareFilters: Nếu filter theo status Active, thêm date range filter
      * Admin xem tất cả banners, nhưng khi lọc Active thì cần check date range
      */
-    protected prepareFilters(filters?: Filters<Banner>, options?: Options): any {
-        if (filters && (filters as any).status === BasicStatus.Active) {
+    protected override async prepareFilters(
+        filters?: Prisma.BannerWhereInput,
+    ): Promise<Prisma.BannerWhereInput | true | undefined> {
+        const prepared: Prisma.BannerWhereInput = { ...(filters || {}) };
+
+        if ((prepared as any).status === BasicStatus.Active) {
             const now = new Date();
-            return {
-                ...filters,
-                start_date: Or(IsNull(), LessThanOrEqual(now)),
-                end_date: Or(IsNull(), MoreThanOrEqual(now)),
-            };
+            prepared.start_date = {
+                lte: now,
+            } as any;
+            prepared.end_date = {
+                gte: now,
+            } as any;
         }
-        return filters;
+
+        return prepared;
     }
 
     /**
      * Override prepareOptions để thêm relations và sort mặc định
      */
-    protected prepareOptions(queryOptions: any = {}): any {
-        const options = super.prepareOptions(queryOptions);
-        
-        // Thêm relation location mặc định
-        if (!options.relations || options.relations.length === 0) {
-            options.relations = ['location'];
-        }
+    protected override prepareOptions(queryOptions: any = {}) {
+        const base = super.prepareOptions(queryOptions);
 
-        // Thêm sort mặc định theo sort_order và created_at
-        if (!options.sort) {
-            options.sort = ['sort_order:ASC', 'created_at:DESC'];
-        }
+        const include: Prisma.BannerInclude = queryOptions?.include ?? {
+            location: true,
+        };
 
-        return options;
+        const orderBy: Prisma.BannerOrderByWithRelationInput[] = queryOptions?.orderBy ?? [
+            { sort_order: 'asc' },
+            { created_at: 'desc' },
+        ];
+
+        return {
+            ...base,
+            include,
+            orderBy,
+        };
     }
 
     /**
      * Lấy banner theo location code
      */
-    async findByLocationCode(locationCode: string): Promise<Banner[]> {
-        const location = await this.bannerLocationRepository.findOne({
-            where: { code: locationCode, status: BasicStatus.Active },
+    async findByLocationCode(locationCode: string): Promise<AdminBannerBag['Model'][]> {
+        const location = await this.prisma.bannerLocation.findFirst({
+            where: { code: locationCode, status: BasicStatus.Active as any },
         });
 
         if (!location) {
@@ -110,8 +122,8 @@ export class BannerService extends CrudService<Banner> {
 
         // Tận dụng getList với filters (date range sẽ được filter ở DB level)
         const result = await this.getList(
-            { location_id: location.id, status: BasicStatus.Active } as any,
-            { limit: 1000, page: 1 }
+            { location_id: location.id, status: BasicStatus.Active as any } as any,
+            { limit: 1000, page: 1 },
         );
 
         return result.data;
@@ -121,13 +133,25 @@ export class BannerService extends CrudService<Banner> {
      * Thay đổi trạng thái banner
      */
     async changeStatus(id: number, status: BasicStatus) {
-        return this.update(id, { status } as any);
+        return this.update({ id: BigInt(id) } as any, { status: status as any } as any);
     }
 
     /**
      * Cập nhật thứ tự sắp xếp banner
      */
     async updateSortOrder(id: number, sortOrder: number) {
-        return this.update(id, { sort_order: sortOrder } as any);
+        return this.update({ id: BigInt(id) } as any, { sort_order: sortOrder } as any);
+    }
+
+    /**
+     * Simple list tương tự getList nhưng limit mặc định lớn hơn
+     */
+    async getSimpleList(filters?: Prisma.BannerWhereInput, options?: any) {
+        const simpleOptions = {
+            ...options,
+            limit: options?.limit ?? 50,
+            maxLimit: options?.maxLimit ?? 1000,
+        };
+        return this.getList(filters, simpleOptions);
     }
 }

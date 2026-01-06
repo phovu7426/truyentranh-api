@@ -1,15 +1,25 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 
+type AdminContextBag = PrismaListBag & {
+  Model: Prisma.ContextGetPayload<any>;
+  Where: Prisma.ContextWhereInput;
+  Select: Prisma.ContextSelect;
+  Include: Prisma.ContextInclude;
+  OrderBy: Prisma.ContextOrderByWithRelationInput;
+};
+
 @Injectable()
-export class AdminContextService {
+export class AdminContextService extends PrismaListService<AdminContextBag> {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => RbacService))
     private readonly rbacService: RbacService,
   ) {
+    super(prisma.context, ['id', 'created_at'], 'id:DESC');
   }
 
   /**

@@ -45,17 +45,17 @@ export class GroupInterceptor implements NestInterceptor {
       
       // Set group và context từ group
       RequestContext.set('groupId', group.id);
-      if (group.context) {
-        RequestContext.set('context', group.context);
-        RequestContext.set('contextId', group.context.id);
-      } else {
-        // Load context nếu chưa có
-        const contextEntity = await this.contextService.findById(group.context_id);
-        if (contextEntity) {
-          RequestContext.set('context', contextEntity);
-          RequestContext.set('contextId', contextEntity.id);
+        if (group.context) {
+          RequestContext.set('context', group.context);
+          RequestContext.set('contextId', Number(group.context.id));
+        } else {
+          // Load context nếu chưa có
+          const contextEntity = await this.contextService.findById(Number(group.context_id));
+          if (contextEntity) {
+            RequestContext.set('context', contextEntity);
+            RequestContext.set('contextId', Number(contextEntity.id));
+          }
         }
-      }
     } else {
       // Không có group_id → tự động resolve group từ user's groups
       const userId = Auth.id(context);

@@ -1,14 +1,24 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 
+type AdminGroupBag = PrismaListBag & {
+  Model: Prisma.GroupGetPayload<any>;
+  Where: Prisma.GroupWhereInput;
+  Select: Prisma.GroupSelect;
+  Include: Prisma.GroupInclude;
+  OrderBy: Prisma.GroupOrderByWithRelationInput;
+};
+
 @Injectable()
-export class AdminGroupService {
+export class AdminGroupService extends PrismaListService<AdminGroupBag> {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rbacService: RbacService,
   ) {
+    super(prisma.group, ['id', 'created_at'], 'id:DESC');
   }
 
   /**

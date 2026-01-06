@@ -1,55 +1,74 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThanOrEqual, IsNull, Or } from 'typeorm';
-import { Banner } from '@/shared/entities/banner.entity';
-import { BannerLocation } from '@/shared/entities/banner-location.entity';
+import { Prisma, Banner, BannerLocation } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
-import { ListService } from '@/common/base/services/list.service';
-import { Filters, Options } from '@/common/base/interfaces/list.interface';
+import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
+
+type PublicBannerBag = PrismaListBag & {
+    Model: Banner;
+    Where: Prisma.BannerWhereInput;
+    Select: Prisma.BannerSelect;
+    Include: Prisma.BannerInclude;
+    OrderBy: Prisma.BannerOrderByWithRelationInput;
+};
 
 @Injectable()
-export class PublicBannerService extends ListService<Banner> {
+export class PublicBannerService extends PrismaListService<PublicBannerBag> {
     constructor(
-        @InjectRepository(Banner)
-        protected readonly bannerRepository: Repository<Banner>,
-        @InjectRepository(BannerLocation)
-        private readonly bannerLocationRepository: Repository<BannerLocation>,
+        private readonly prisma: PrismaService,
     ) {
-        super(bannerRepository);
+        super(prisma.banner, ['id', 'created_at', 'sort_order'], 'id:DESC');
     }
 
     /**
      * Override prepareFilters để thêm filter active banners + date range
      * Lọc: status = active, start_date <= now, end_date >= now (hoặc null)
      */
-    protected prepareFilters(filters?: Filters<Banner>, options?: Options): any {
+    protected override async prepareFilters(
+        filters?: Prisma.BannerWhereInput,
+    ): Promise<Prisma.BannerWhereInput | true | undefined> {
         const now = new Date();
-        return {
-            ...filters,
-            status: BasicStatus.Active,
-            start_date: Or(IsNull(), LessThanOrEqual(now)),
-            end_date: Or(IsNull(), MoreThanOrEqual(now)),
+        const prepared: Prisma.BannerWhereInput = {
+            ...(filters || {}),
+            status: BasicStatus.Active as any,
+            start_date: {
+                lte: now,
+            } as any,
+            end_date: {
+                gte: now,
+            } as any,
         };
+
+        return prepared;
     }
 
     /**
      * Override prepareOptions để set default sort
      */
-    protected prepareOptions(queryOptions: any = {}): any {
-        const options = super.prepareOptions(queryOptions);
-        
-        if (!options.sort) {
-            options.sort = ['sort_order:ASC', 'created_at:DESC'];
-        }
+    protected override prepareOptions(queryOptions: any = {}) {
+        const base = super.prepareOptions(queryOptions);
 
-        return options;
+        const include: Prisma.BannerInclude = queryOptions?.include ?? {
+            location: true,
+        };
+
+        const orderBy: Prisma.BannerOrderByWithRelationInput[] = queryOptions?.orderBy ?? [
+            { sort_order: 'asc' },
+            { created_at: 'desc' },
+        ];
+
+        return {
+            ...base,
+            include,
+            orderBy,
+        };
     }
 
-    async findByLocationCode(locationCode: string): Promise<Banner[]> {
-        const location = await this.bannerLocationRepository.findOne({
+    async findByLocationCode(locationCode: string): Promise<PublicBannerBag['Model'][]> {
+        const location = await this.prisma.bannerLocation.findFirst({
             where: {
                 code: locationCode,
-                status: BasicStatus.Active
+                status: BasicStatus.Active as any,
             },
         });
 
@@ -60,30 +79,31 @@ export class PublicBannerService extends ListService<Banner> {
         // Tận dụng getList với filters
         const result = await this.getList(
             { location_id: location.id } as any,
-            { limit: 1000, page: 1 }
+            { limit: 1000, page: 1 },
         );
 
         return result.data;
     }
 
     async findActiveBanners(locationCode?: string): Promise<{
-        [locationCode: string]: Banner[];
+        [locationCode: string]: PublicBannerBag['Model'][];
     }> {
-        const qb = this.bannerLocationRepository.createQueryBuilder('location');
-        qb.where('location.status = :status', { status: BasicStatus.Active });
-        
-        if (locationCode) {
-            qb.andWhere('location.code = :code', { code: locationCode });
-        }
+        const where: Prisma.BannerLocationWhereInput = {
+            status: BasicStatus.Active as any,
+            ...(locationCode ? { code: locationCode } : {}),
+        };
 
-        const locations = await qb.getMany();
-        const result: { [locationCode: string]: Banner[] } = {};
+        const locations = await this.prisma.bannerLocation.findMany({
+            where,
+        });
+
+        const result: { [locationCode: string]: PublicBannerBag['Model'][] } = {};
 
         // Tận dụng getList cho mỗi location
         for (const location of locations) {
             const bannerResult = await this.getList(
                 { location_id: location.id } as any,
-                { limit: 1000, page: 1 }
+                { limit: 1000, page: 1 },
             );
 
             if (bannerResult.data.length > 0) {
@@ -94,11 +114,15 @@ export class PublicBannerService extends ListService<Banner> {
         return result;
     }
 
-    async findBannerById(id: number): Promise<Banner> {
+    async findBannerById(id: number): Promise<PublicBannerBag['Model']> {
         // Tận dụng getOne với relations và filters
         const banner = await this.getOne(
-            { id, status: BasicStatus.Active } as any,
-            { relations: ['location'] }
+            { id: BigInt(id), status: BasicStatus.Active as any } as any,
+            {
+                include: {
+                    location: true,
+                },
+            },
         );
 
         if (!banner) {

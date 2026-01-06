@@ -2,15 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '@/shared/entities/user.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
-    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -25,8 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userId = payload.sub;
     
     // Load thông tin user cơ bản
-    const user = await this.userRepo.findOne({
-      where: { id: Number(userId) },
+    const user = await this.prisma.user.findFirst({
+      where: { id: BigInt(userId) },
       select: {
         id: true,
         username: true,

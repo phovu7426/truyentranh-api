@@ -1,80 +1,104 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
-import { BannerLocation } from '@/shared/entities/banner-location.entity';
+import { Prisma, BannerLocation } from '@prisma/client';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { BasicStatus } from '@/shared/enums/basic-status.enum';
-import { CrudService } from '@/common/base/services/crud.service';
-import { ResponseRef } from '@/common/base/utils/response-ref.helper';
+import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
+
+type BannerLocationBag = PrismaCrudBag & {
+    Model: BannerLocation;
+    Where: Prisma.BannerLocationWhereInput;
+    Select: Prisma.BannerLocationSelect;
+    Include: Prisma.BannerLocationInclude;
+    OrderBy: Prisma.BannerLocationOrderByWithRelationInput;
+    Create: Prisma.BannerLocationCreateInput;
+    Update: Prisma.BannerLocationUpdateInput;
+};
 
 @Injectable()
-export class BannerLocationService extends CrudService<BannerLocation> {
+export class BannerLocationService extends PrismaCrudService<BannerLocationBag> {
     constructor(
-        @InjectRepository(BannerLocation)
-        protected readonly bannerLocationRepository: Repository<BannerLocation>,
+        private readonly prisma: PrismaService,
     ) {
-        super(bannerLocationRepository);
+        super(prisma.bannerLocation, ['id', 'created_at'], 'created_at:DESC');
     }
 
     /**
      * Hook: Validate code unique trước khi tạo
      */
-    protected async beforeCreate(
-        entity: BannerLocation,
-        createDto: DeepPartial<BannerLocation>,
-        response?: ResponseRef<BannerLocation | null>
-    ): Promise<boolean> {
-        if (createDto.code) {
-            const existingLocation = await this.bannerLocationRepository.findOne({
-                where: { code: createDto.code as string },
+    protected override async beforeCreate(createDto: BannerLocationBag['Create']): Promise<BannerLocationBag['Create']> {
+        const payload = { ...createDto };
+
+        if (payload.code) {
+            const existingLocation = await this.prisma.bannerLocation.findFirst({
+                where: { code: payload.code },
             });
 
             if (existingLocation) {
-                throw new ConflictException(`Mã vị trí banner "${createDto.code}" đã tồn tại`);
+                throw new ConflictException(`Mã vị trí banner "${payload.code}" đã tồn tại`);
             }
         }
 
-        return true;
+        return payload;
     }
 
     /**
      * Hook: Validate code unique trước khi cập nhật
      */
-    protected async beforeUpdate(
-        entity: BannerLocation,
-        updateDto: DeepPartial<BannerLocation>,
-        response?: ResponseRef<BannerLocation | null>
-    ): Promise<boolean> {
-        if (updateDto.code && updateDto.code !== entity.code) {
-            const existingLocation = await this.bannerLocationRepository.findOne({
-                where: { code: updateDto.code as string },
+    protected override async beforeUpdate(
+        where: Prisma.BannerLocationWhereInput,
+        updateDto: BannerLocationBag['Update'],
+    ): Promise<BannerLocationBag['Update']> {
+        const payload = { ...updateDto };
+        const id = (where as any).id ? BigInt((where as any).id) : null;
+        const current = id
+            ? await this.prisma.bannerLocation.findFirst({ where: { id } })
+            : null;
+
+        if (payload.code && payload.code !== current?.code) {
+            const existingLocation = await this.prisma.bannerLocation.findFirst({
+                where: { code: payload.code },
             });
 
             if (existingLocation) {
-                throw new ConflictException(`Mã vị trí banner "${updateDto.code}" đã tồn tại`);
+                throw new ConflictException(`Mã vị trí banner "${payload.code}" đã tồn tại`);
             }
         }
 
-        return true;
+        return payload;
     }
 
     /**
      * Override prepareOptions để thêm sort mặc định
      */
-    protected prepareOptions(queryOptions: any = {}): any {
-        const options = super.prepareOptions(queryOptions);
-        
-        // Thêm sort mặc định theo created_at
-        if (!options.sort) {
-            options.sort = 'created_at:DESC';
-        }
+    protected override prepareOptions(queryOptions: any = {}) {
+        const base = super.prepareOptions(queryOptions);
 
-        return options;
+        const orderBy: Prisma.BannerLocationOrderByWithRelationInput[] = queryOptions?.orderBy ?? [
+            { created_at: 'desc' },
+        ];
+
+        return {
+            ...base,
+            orderBy,
+        };
     }
 
     /**
      * Thay đổi trạng thái banner location
      */
     async changeStatus(id: number, status: BasicStatus) {
-        return this.update(id, { status } as any);
+        return this.update({ id: BigInt(id) } as any, { status: status as any } as any);
     }
+
+  /**
+   * Simple list tương tự getList nhưng limit mặc định lớn hơn
+   */
+  async getSimpleList(filters?: Prisma.BannerLocationWhereInput, options?: any) {
+    const simpleOptions = {
+      ...options,
+      limit: options?.limit ?? 50,
+      maxLimit: options?.maxLimit ?? 1000,
+    };
+    return this.getList(filters, simpleOptions);
+  }
 }
