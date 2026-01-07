@@ -1,33 +1,26 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ComicReview } from '@/shared/entities/comic-review.entity';
-import { ComicStats } from '@/shared/entities/comic-stats.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 
 @Injectable()
 export class ReviewsService {
-  private get statsRepo(): Repository<ComicStats> {
-    return this.reviewRepo.manager.getRepository(ComicStats);
-  }
-
   constructor(
-    @InjectRepository(ComicReview) private readonly reviewRepo: Repository<ComicReview>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getByComic(comicId: number) {
-    return this.reviewRepo.find({
+    return this.prisma.comicReview.findMany({
       where: { comic_id: comicId },
-      relations: ['user'],
-      order: { created_at: 'DESC' },
+      include: { user: true },
+      orderBy: { created_at: 'desc' },
     });
   }
 
   async getByUser(userId: number) {
-    return this.reviewRepo.find({
+    return this.prisma.comicReview.findMany({
       where: { user_id: userId },
-      relations: ['comic'],
-      order: { created_at: 'DESC' },
+      include: { comic: true },
+      orderBy: { created_at: 'desc' },
     });
   }
 
@@ -41,26 +34,31 @@ export class ReviewsService {
       throw new BadRequestException('Rating phải từ 1 đến 5');
     }
 
-    const existing = await this.reviewRepo.findOne({
+    const existing = await this.prisma.comicReview.findFirst({
       where: { user_id: userId, comic_id: comicId },
     });
 
-    let review: ComicReview;
+    let review;
     let oldRating: number | null = null;
 
     if (existing) {
       oldRating = existing.rating;
-      existing.rating = rating;
-      existing.content = content;
-      review = await this.reviewRepo.save(existing);
-    } else {
-      review = this.reviewRepo.create({
-        user_id: userId,
-        comic_id: comicId,
-        rating,
-        content,
+      review = await this.prisma.comicReview.update({
+        where: { id: existing.id },
+        data: {
+          rating,
+          content,
+        },
       });
-      review = await this.reviewRepo.save(review);
+    } else {
+      review = await this.prisma.comicReview.create({
+        data: {
+          user_id: userId,
+          comic_id: comicId,
+          rating,
+          content,
+        },
+      });
     }
 
     // Update comic stats
@@ -75,7 +73,7 @@ export class ReviewsService {
       throw new Error('User not authenticated');
     }
 
-    const review = await this.reviewRepo.findOne({
+    const review = await this.prisma.comicReview.findFirst({
       where: { user_id: userId, comic_id: comicId },
     });
 
@@ -83,40 +81,56 @@ export class ReviewsService {
       throw new BadRequestException('Review không tồn tại');
     }
 
-    await this.reviewRepo.remove(review);
+    await this.prisma.comicReview.delete({
+      where: { id: review.id },
+    });
 
     // Update comic stats
-    const stats = await this.statsRepo.findOne({ where: { comic_id: comicId } });
+    const stats = await this.prisma.comicStats.findUnique({ where: { comic_id: comicId } });
     if (stats) {
-      stats.rating_count = Math.max(0, stats.rating_count - 1);
-      stats.rating_sum = Math.max(0, stats.rating_sum - review.rating);
-      await this.statsRepo.save(stats);
+      await this.prisma.comicStats.update({
+        where: { comic_id: comicId },
+        data: {
+          rating_count: BigInt(Math.max(0, Number(stats.rating_count) - 1)),
+          rating_sum: BigInt(Math.max(0, Number(stats.rating_sum) - review.rating)),
+        },
+      });
     }
 
     return { deleted: true };
   }
 
   private async updateComicStats(comicId: number, newRating: number, oldRating: number | null, isNew: boolean) {
-    let stats = await this.statsRepo.findOne({ where: { comic_id: comicId } });
+    let stats = await this.prisma.comicStats.findUnique({ where: { comic_id: comicId } });
     
     if (!stats) {
-      stats = this.statsRepo.create({
-        comic_id: comicId,
-        view_count: 0,
-        follow_count: 0,
-        rating_count: 0,
-        rating_sum: 0,
+      stats = await this.prisma.comicStats.create({
+        data: {
+          comic_id: comicId,
+          view_count: 0,
+          follow_count: 0,
+          rating_count: 0,
+          rating_sum: 0,
+        },
       });
     }
 
     if (isNew) {
-      stats.rating_count += 1;
-      stats.rating_sum += newRating;
+      await this.prisma.comicStats.update({
+        where: { comic_id: comicId },
+        data: {
+          rating_count: BigInt(Number(stats.rating_count) + 1),
+          rating_sum: BigInt(Number(stats.rating_sum) + newRating),
+        },
+      });
     } else if (oldRating !== null) {
-      stats.rating_sum = stats.rating_sum - oldRating + newRating;
+      await this.prisma.comicStats.update({
+        where: { comic_id: comicId },
+        data: {
+          rating_sum: BigInt(Number(stats.rating_sum) - oldRating + newRating),
+        },
+      });
     }
-
-    await this.statsRepo.save(stats);
   }
 }
 

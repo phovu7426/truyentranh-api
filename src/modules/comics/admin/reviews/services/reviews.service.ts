@@ -1,113 +1,104 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ComicReview } from '@/shared/entities/comic-review.entity';
-import { CrudService } from '@/common/base/services/crud.service';
-import { prepareQuery } from '@/common/base/utils/list-query.helper';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { createPaginationMeta } from '@/common/base/utils/pagination.helper';
 
 @Injectable()
-export class ReviewsService extends CrudService<ComicReview> {
+export class ReviewsService {
   constructor(
-    @InjectRepository(ComicReview) protected readonly repo: Repository<ComicReview>,
-  ) {
-    super(repo);
-  }
-
-  /**
-   * Override để load relations trong admin
-   */
-  protected override prepareOptions(queryOptions: any = {}) {
-    const base = super.prepareOptions(queryOptions);
-    return {
-      ...base,
-      relations: ['user', 'comic', 'created_user', 'updated_user'],
-    } as any;
-  }
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Get list với filter và search
    */
   async getList(filters: any = {}, options: any = {}) {
-    const queryBuilder = this.repo.createQueryBuilder('review')
-      .leftJoinAndSelect('review.user', 'user')
-      .leftJoinAndSelect('review.comic', 'comic')
-      .leftJoinAndSelect('review.created_user', 'created_user')
-      .leftJoinAndSelect('review.updated_user', 'updated_user');
-
-    // Filter by comic_id
-    if (filters.comic_id) {
-      queryBuilder.andWhere('review.comic_id = :comic_id', { comic_id: filters.comic_id });
-    }
-
-    // Filter by user_id
-    if (filters.user_id) {
-      queryBuilder.andWhere('review.user_id = :user_id', { user_id: filters.user_id });
-    }
-
-    // Filter by rating
-    if (filters.rating) {
-      queryBuilder.andWhere('review.rating = :rating', { rating: filters.rating });
-    }
-
-    // Filter by rating range
-    if (filters.rating_min) {
-      queryBuilder.andWhere('review.rating >= :rating_min', { rating_min: filters.rating_min });
-    }
-    if (filters.rating_max) {
-      queryBuilder.andWhere('review.rating <= :rating_max', { rating_max: filters.rating_max });
-    }
-
-    // Search by content
-    if (filters.search) {
-      queryBuilder.andWhere('review.content LIKE :search', { search: `%${filters.search}%` });
-    }
-
-    // Filter by date range
-    if (filters.date_from) {
-      queryBuilder.andWhere('review.created_at >= :date_from', { date_from: filters.date_from });
-    }
-    if (filters.date_to) {
-      queryBuilder.andWhere('review.created_at <= :date_to', { date_to: filters.date_to });
-    }
-
-    // Sort
-    const sort = options.sort || 'created_at:DESC';
-    const [sortField, sortOrder] = sort.split(':');
-    queryBuilder.orderBy(`review.${sortField}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
-
-    // Pagination
     const page = options.page || 1;
     const limit = options.limit || 20;
     const skip = (page - 1) * limit;
+    const sort = options.sort || 'created_at:DESC';
+    const [sortField, sortOrder] = sort.split(':');
 
-    queryBuilder.skip(skip).take(limit);
+    // Build where clause
+    const where: Prisma.ComicReviewWhereInput = {
+      deleted_at: null,
+    };
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    if (filters.comic_id) {
+      where.comic_id = filters.comic_id;
+    }
+
+    if (filters.user_id) {
+      where.user_id = filters.user_id;
+    }
+
+    if (filters.rating) {
+      where.rating = filters.rating;
+    }
+
+    if (filters.rating_min || filters.rating_max) {
+      where.rating = {};
+      if (filters.rating_min) {
+        where.rating.gte = filters.rating_min;
+      }
+      if (filters.rating_max) {
+        where.rating.lte = filters.rating_max;
+      }
+    }
+
+    if (filters.search) {
+      where.content = { contains: filters.search };
+    }
+
+    if (filters.date_from || filters.date_to) {
+      where.created_at = {};
+      if (filters.date_from) {
+        where.created_at.gte = new Date(filters.date_from);
+      }
+      if (filters.date_to) {
+        where.created_at.lte = new Date(filters.date_to);
+      }
+    }
+
+    // Build orderBy
+    const orderBy: Prisma.ComicReviewOrderByWithRelationInput = {};
+    if (sortField && ['id', 'created_at', 'updated_at', 'rating', 'user_id', 'comic_id'].includes(sortField)) {
+      orderBy[sortField as keyof Prisma.ComicReviewOrderByWithRelationInput] = sortOrder.toLowerCase() as 'asc' | 'desc';
+    } else {
+      orderBy.created_at = 'desc';
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.comicReview.findMany({
+        where,
+        include: {
+          user: true,
+          comic: true,
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.comicReview.count({ where }),
+    ]);
 
     return {
       data,
-      meta: {
-        page,
-        limit,
-        totalItems: total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
-        nextPage: page < Math.ceil(total / limit) ? page + 1 : undefined,
-        previousPage: page > 1 ? page - 1 : undefined,
-      },
+      meta: createPaginationMeta(page, limit, total),
     };
   }
 
   /**
    * Get one với relations
    */
-  override async getOne(where: any, options?: any): Promise<ComicReview | null> {
-    const adminOptions = {
-      ...options,
-      relations: ['user', 'comic', 'created_user', 'updated_user'],
-    };
-    return super.getOne(where, adminOptions);
+  async getOne(where: any): Promise<any | null> {
+    return this.prisma.comicReview.findFirst({
+      where: { ...where, deleted_at: null },
+      include: {
+        user: true,
+        comic: true,
+      },
+    });
   }
 
   /**
@@ -119,17 +110,25 @@ export class ReviewsService extends CrudService<ComicReview> {
       throw new NotFoundException('Review not found');
     }
 
+    const updateData: Prisma.ComicReviewUpdateInput = {};
     if (data.content !== undefined) {
-      review.content = data.content;
+      updateData.content = data.content;
     }
     if (data.rating !== undefined) {
       if (data.rating < 1 || data.rating > 5) {
         throw new Error('Rating must be between 1 and 5');
       }
-      review.rating = data.rating;
+      updateData.rating = data.rating;
     }
 
-    return this.repo.save(review);
+    return this.prisma.comicReview.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: true,
+        comic: true,
+      },
+    });
   }
 
   /**
@@ -141,7 +140,11 @@ export class ReviewsService extends CrudService<ComicReview> {
       throw new NotFoundException('Review not found');
     }
 
-    await this.repo.softRemove(review);
+    await this.prisma.comicReview.update({
+      where: { id },
+      data: { deleted_at: new Date() },
+    });
+
     return { deleted: true };
   }
 
@@ -149,62 +152,73 @@ export class ReviewsService extends CrudService<ComicReview> {
    * Restore review
    */
   async restore(id: number) {
-    const review = await this.repo.findOne({
-      where: { id } as any,
-      withDeleted: true,
+    const review = await this.prisma.comicReview.findFirst({
+      where: { id },
     });
 
     if (!review) {
       throw new NotFoundException('Review not found');
     }
 
-    await this.repo.restore(id);
-    await this.getOne({ id });
-    return { restored: true };
+    await this.prisma.comicReview.update({
+      where: { id },
+      data: { deleted_at: null },
+    });
+
+    return this.getOne({ id });
   }
 
   /**
    * Get review statistics
    */
   async getStatistics() {
-    const total = await this.repo.count();
-    const today = await this.repo
-      .createQueryBuilder('review')
-      .where('DATE(review.created_at) = CURDATE()')
-      .getCount();
-    const thisWeek = await this.repo
-      .createQueryBuilder('review')
-      .where('YEARWEEK(review.created_at) = YEARWEEK(CURDATE())')
-      .getCount();
-    const thisMonth = await this.repo
-      .createQueryBuilder('review')
-      .where('YEAR(review.created_at) = YEAR(CURDATE()) AND MONTH(review.created_at) = MONTH(CURDATE())')
-      .getCount();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Average rating
-    const avgRating = await this.repo
-      .createQueryBuilder('review')
-      .select('AVG(review.rating)', 'avg')
-      .getRawOne();
-
-    // Rating distribution
-    const ratingDistribution = await this.repo
-      .createQueryBuilder('review')
-      .select('review.rating', 'rating')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('review.rating')
-      .orderBy('review.rating', 'ASC')
-      .getRawMany();
+    const [total, todayCount, thisWeekCount, thisMonthCount, avgRatingResult, ratingDistribution] = await Promise.all([
+      this.prisma.comicReview.count({ where: { deleted_at: null } }),
+      this.prisma.comicReview.count({
+        where: {
+          created_at: { gte: today },
+          deleted_at: null,
+        },
+      }),
+      this.prisma.comicReview.count({
+        where: {
+          created_at: { gte: startOfWeek },
+          deleted_at: null,
+        },
+      }),
+      this.prisma.comicReview.count({
+        where: {
+          created_at: { gte: startOfMonth },
+          deleted_at: null,
+        },
+      }),
+      this.prisma.comicReview.aggregate({
+        where: { deleted_at: null },
+        _avg: { rating: true },
+      }),
+      this.prisma.comicReview.groupBy({
+        by: ['rating'],
+        where: { deleted_at: null },
+        _count: { rating: true },
+        orderBy: { rating: 'asc' },
+      }),
+    ]);
 
     return {
       total,
-      today,
-      this_week: thisWeek,
-      this_month: thisMonth,
-      average_rating: parseFloat(avgRating?.avg || '0'),
+      today: todayCount,
+      this_week: thisWeekCount,
+      this_month: thisMonthCount,
+      average_rating: avgRatingResult._avg.rating || 0,
       rating_distribution: ratingDistribution.map(r => ({
-        rating: parseInt(r.rating),
-        count: parseInt(r.count),
+        rating: r.rating,
+        count: r._count.rating,
       })),
     };
   }

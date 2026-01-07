@@ -1,20 +1,20 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Bookmark } from '@/shared/entities/bookmark.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 
 @Injectable()
 export class BookmarksService {
   constructor(
-    @InjectRepository(Bookmark) private readonly repo: Repository<Bookmark>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getByUser(userId: number) {
-    return this.repo.find({
+    return this.prisma.bookmark.findMany({
       where: { user_id: userId },
-      relations: ['chapter'],
-      order: { created_at: 'DESC' },
+      include: {
+        chapter: true,
+      },
+      orderBy: { created_at: 'desc' },
     });
   }
 
@@ -24,12 +24,16 @@ export class BookmarksService {
       throw new Error('User not authenticated');
     }
 
-    const bookmark = this.repo.create({
-      user_id: userId,
-      chapter_id: chapterId,
-      page_number: pageNumber,
+    return this.prisma.bookmark.create({
+      data: {
+        user_id: userId,
+        chapter_id: chapterId,
+        page_number: pageNumber,
+      },
+      include: {
+        chapter: true,
+      },
     });
-    return this.repo.save(bookmark);
   }
 
   async delete(id: number) {
@@ -38,7 +42,13 @@ export class BookmarksService {
       throw new Error('User not authenticated');
     }
 
-    await this.repo.delete({ id, user_id: userId });
+    await this.prisma.bookmark.deleteMany({
+      where: {
+        id: id,
+        user_id: userId,
+      },
+    });
+
     return { deleted: true };
   }
 }

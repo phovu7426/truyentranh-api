@@ -1,17 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ReadingHistory } from '@/shared/entities/reading-history.entity';
-import { ComicFollow } from '@/shared/entities/comic-follow.entity';
-import { Bookmark } from '@/shared/entities/bookmark.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 
 @Injectable()
 export class DashboardService {
   constructor(
-    @InjectRepository(ReadingHistory) private readonly historyRepo: Repository<ReadingHistory>,
-    @InjectRepository(ComicFollow) private readonly followRepo: Repository<ComicFollow>,
-    @InjectRepository(Bookmark) private readonly bookmarkRepo: Repository<Bookmark>,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -19,24 +13,39 @@ export class DashboardService {
    */
   async getDashboard(userId: number) {
     const [readingHistory, follows, bookmarks] = await Promise.all([
-      this.historyRepo.find({
-        where: { user_id: userId } as any,
-        relations: ['comic', 'chapter'],
-        order: { updated_at: 'DESC' },
+      this.prisma.readingHistory.findMany({
+        where: { user_id: userId },
+        include: {
+          comic: true,
+          chapter: true,
+        },
+        orderBy: { updated_at: 'desc' },
         take: 10,
       }),
-      this.followRepo.find({
-        where: { user_id: userId } as any,
-        relations: ['comic'],
-        order: { created_at: 'DESC' },
+      this.prisma.comicFollow.findMany({
+        where: { user_id: userId },
+        include: { comic: true },
+        orderBy: { created_at: 'desc' },
         take: 10,
       }),
-      this.bookmarkRepo.find({
-        where: { user_id: userId } as any,
-        relations: ['chapter', 'comic'],
-        order: { created_at: 'DESC' },
+      this.prisma.bookmark.findMany({
+        where: { user_id: userId },
+        include: {
+          chapter: {
+            include: {
+              comic: true,
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
         take: 10,
       }),
+    ]);
+
+    const [readingCount, followCount, bookmarkCount] = await Promise.all([
+      this.prisma.readingHistory.count({ where: { user_id: userId } }),
+      this.prisma.comicFollow.count({ where: { user_id: userId } }),
+      this.prisma.bookmark.count({ where: { user_id: userId } }),
     ]);
 
     return {
@@ -44,9 +53,9 @@ export class DashboardService {
       follows: follows,
       bookmarks: bookmarks,
       stats: {
-        reading_count: await this.historyRepo.count({ where: { user_id: userId } as any }),
-        follow_count: await this.followRepo.count({ where: { user_id: userId } as any }),
-        bookmark_count: await this.bookmarkRepo.count({ where: { user_id: userId } as any }),
+        reading_count: readingCount,
+        follow_count: followCount,
+        bookmark_count: bookmarkCount,
       },
     };
   }
@@ -58,13 +67,19 @@ export class DashboardService {
     const skip = (page - 1) * limit;
 
     // Lấy từ reading history
-    const [history, total] = await this.historyRepo.findAndCount({
-      where: { user_id: userId } as any,
-      relations: ['comic', 'chapter'],
-      order: { updated_at: 'DESC' },
-      skip,
-      take: limit,
-    });
+    const [history, total] = await Promise.all([
+      this.prisma.readingHistory.findMany({
+        where: { user_id: userId },
+        include: {
+          comic: true,
+          chapter: true,
+        },
+        orderBy: { updated_at: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.readingHistory.count({ where: { user_id: userId } }),
+    ]);
 
     return {
       data: history.map(h => ({

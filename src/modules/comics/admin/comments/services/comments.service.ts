@@ -1,121 +1,112 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Comment } from '@/shared/entities/comment.entity';
-import { CrudService } from '@/common/base/services/crud.service';
-import { prepareQuery } from '@/common/base/utils/list-query.helper';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { createPaginationMeta } from '@/common/base/utils/pagination.helper';
 
 @Injectable()
-export class CommentsService extends CrudService<Comment> {
+export class CommentsService {
   constructor(
-    @InjectRepository(Comment) protected readonly repo: Repository<Comment>,
-  ) {
-    super(repo);
-  }
-
-  /**
-   * Override để load relations trong admin
-   */
-  protected override prepareOptions(queryOptions: any = {}) {
-    const base = super.prepareOptions(queryOptions);
-    return {
-      ...base,
-      relations: ['user', 'comic', 'chapter', 'parent', 'replies', 'created_user', 'updated_user'],
-    } as any;
-  }
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Get list với filter và search
    */
   async getList(filters: any = {}, options: any = {}) {
-    const queryBuilder = this.repo.createQueryBuilder('comment')
-      .leftJoinAndSelect('comment.user', 'user')
-      .leftJoinAndSelect('comment.comic', 'comic')
-      .leftJoinAndSelect('comment.chapter', 'chapter')
-      .leftJoinAndSelect('comment.parent', 'parent')
-      .leftJoinAndSelect('comment.created_user', 'created_user')
-      .leftJoinAndSelect('comment.updated_user', 'updated_user');
-
-    // Filter by comic_id
-    if (filters.comic_id) {
-      queryBuilder.andWhere('comment.comic_id = :comic_id', { comic_id: filters.comic_id });
-    }
-
-    // Filter by chapter_id
-    if (filters.chapter_id) {
-      queryBuilder.andWhere('comment.chapter_id = :chapter_id', { chapter_id: filters.chapter_id });
-    }
-
-    // Filter by user_id
-    if (filters.user_id) {
-      queryBuilder.andWhere('comment.user_id = :user_id', { user_id: filters.user_id });
-    }
-
-    // Filter by status
-    if (filters.status) {
-      queryBuilder.andWhere('comment.status = :status', { status: filters.status });
-    }
-
-    // Filter by parent_id (null = top-level comments)
-    if (filters.parent_id !== undefined) {
-      if (filters.parent_id === null || filters.parent_id === 'null') {
-        queryBuilder.andWhere('comment.parent_id IS NULL');
-      } else {
-        queryBuilder.andWhere('comment.parent_id = :parent_id', { parent_id: filters.parent_id });
-      }
-    }
-
-    // Search by content
-    if (filters.search) {
-      queryBuilder.andWhere('comment.content LIKE :search', { search: `%${filters.search}%` });
-    }
-
-    // Filter by date range
-    if (filters.date_from) {
-      queryBuilder.andWhere('comment.created_at >= :date_from', { date_from: filters.date_from });
-    }
-    if (filters.date_to) {
-      queryBuilder.andWhere('comment.created_at <= :date_to', { date_to: filters.date_to });
-    }
-
-    // Sort
-    const sort = options.sort || 'created_at:DESC';
-    const [sortField, sortOrder] = sort.split(':');
-    queryBuilder.orderBy(`comment.${sortField}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
-
-    // Pagination
     const page = options.page || 1;
     const limit = options.limit || 20;
     const skip = (page - 1) * limit;
+    const sort = options.sort || 'created_at:DESC';
+    const [sortField, sortOrder] = sort.split(':');
 
-    queryBuilder.skip(skip).take(limit);
+    // Build where clause
+    const where: Prisma.CommentWhereInput = {
+      deleted_at: null,
+    };
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    if (filters.comic_id) {
+      where.comic_id = filters.comic_id;
+    }
+
+    if (filters.chapter_id) {
+      where.chapter_id = filters.chapter_id;
+    }
+
+    if (filters.user_id) {
+      where.user_id = filters.user_id;
+    }
+
+    if (filters.status) {
+      where.status = filters.status as any;
+    }
+
+    if (filters.parent_id !== undefined) {
+      if (filters.parent_id === null || filters.parent_id === 'null') {
+        where.parent_id = null;
+      } else {
+        where.parent_id = filters.parent_id;
+      }
+    }
+
+    if (filters.search) {
+      where.content = { contains: filters.search };
+    }
+
+    if (filters.date_from || filters.date_to) {
+      where.created_at = {};
+      if (filters.date_from) {
+        where.created_at.gte = new Date(filters.date_from);
+      }
+      if (filters.date_to) {
+        where.created_at.lte = new Date(filters.date_to);
+      }
+    }
+
+    // Build orderBy
+    const orderBy: Prisma.CommentOrderByWithRelationInput = {};
+    if (sortField && ['id', 'created_at', 'updated_at', 'user_id', 'comic_id'].includes(sortField)) {
+      orderBy[sortField as keyof Prisma.CommentOrderByWithRelationInput] = sortOrder.toLowerCase() as 'asc' | 'desc';
+    } else {
+      orderBy.created_at = 'desc';
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.comment.findMany({
+        where,
+        include: {
+          user: true,
+          comic: true,
+          chapter: true,
+          parent: true,
+          replies: true,
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.comment.count({ where }),
+    ]);
 
     return {
       data,
-      meta: {
-        page,
-        limit,
-        totalItems: total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
-        nextPage: page < Math.ceil(total / limit) ? page + 1 : undefined,
-        previousPage: page > 1 ? page - 1 : undefined,
-      },
+      meta: createPaginationMeta(page, limit, total),
     };
   }
 
   /**
    * Get one với relations
    */
-  override async getOne(where: any, options?: any): Promise<Comment | null> {
-    const adminOptions = {
-      ...options,
-      relations: ['user', 'comic', 'chapter', 'parent', 'replies', 'created_user', 'updated_user'],
-    };
-    return super.getOne(where, adminOptions);
+  async getOne(where: any): Promise<any | null> {
+    return this.prisma.comment.findFirst({
+      where: { ...where, deleted_at: null },
+      include: {
+        user: true,
+        comic: true,
+        chapter: true,
+        parent: true,
+        replies: true,
+      },
+    });
   }
 
   /**
@@ -127,14 +118,25 @@ export class CommentsService extends CrudService<Comment> {
       throw new NotFoundException('Comment not found');
     }
 
+    const updateData: Prisma.CommentUpdateInput = {};
     if (data.content !== undefined) {
-      comment.content = data.content;
+      updateData.content = data.content;
     }
     if (data.status !== undefined) {
-      comment.status = data.status;
+      updateData.status = data.status as any;
     }
 
-    return this.repo.save(comment);
+    return this.prisma.comment.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: true,
+        comic: true,
+        chapter: true,
+        parent: true,
+        replies: true,
+      },
+    });
   }
 
   /**
@@ -147,14 +149,16 @@ export class CommentsService extends CrudService<Comment> {
     }
 
     // Soft delete comment và tất cả replies
-    await this.repo.softRemove(comment);
+    await this.prisma.comment.update({
+      where: { id },
+      data: { deleted_at: new Date() },
+    });
     
     // Soft delete all replies
-    await this.repo
-      .createQueryBuilder()
-      .softDelete()
-      .where('parent_id = :parent_id', { parent_id: id })
-      .execute();
+    await this.prisma.comment.updateMany({
+      where: { parent_id: id },
+      data: { deleted_at: new Date() },
+    });
 
     return { deleted: true };
   }
@@ -163,47 +167,63 @@ export class CommentsService extends CrudService<Comment> {
    * Restore comment
    */
   async restore(id: number) {
-    const comment = await this.repo.findOne({
-      where: { id } as any,
-      withDeleted: true,
+    const comment = await this.prisma.comment.findFirst({
+      where: { id },
     });
 
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
 
-    await this.repo.restore(id);
-    await this.getOne({ id });
-    return { restored: true };
+    await this.prisma.comment.update({
+      where: { id },
+      data: { deleted_at: null },
+    });
+
+    return this.getOne({ id });
   }
 
   /**
    * Get comment statistics
    */
   async getStatistics() {
-    const total = await this.repo.count();
-    const visible = await this.repo.count({ where: { status: 'visible' } as any });
-    const hidden = await this.repo.count({ where: { status: 'hidden' } as any });
-    const today = await this.repo
-      .createQueryBuilder('comment')
-      .where('DATE(comment.created_at) = CURDATE()')
-      .getCount();
-    const thisWeek = await this.repo
-      .createQueryBuilder('comment')
-      .where('YEARWEEK(comment.created_at) = YEARWEEK(CURDATE())')
-      .getCount();
-    const thisMonth = await this.repo
-      .createQueryBuilder('comment')
-      .where('YEAR(comment.created_at) = YEAR(CURDATE()) AND MONTH(comment.created_at) = MONTH(CURDATE())')
-      .getCount();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const [total, visible, hidden, todayCount, thisWeekCount, thisMonthCount] = await Promise.all([
+      this.prisma.comment.count({ where: { deleted_at: null } }),
+      this.prisma.comment.count({ where: { status: 'visible', deleted_at: null } }),
+      this.prisma.comment.count({ where: { status: 'hidden', deleted_at: null } }),
+      this.prisma.comment.count({
+        where: {
+          created_at: { gte: today },
+          deleted_at: null,
+        },
+      }),
+      this.prisma.comment.count({
+        where: {
+          created_at: { gte: startOfWeek },
+          deleted_at: null,
+        },
+      }),
+      this.prisma.comment.count({
+        where: {
+          created_at: { gte: startOfMonth },
+          deleted_at: null,
+        },
+      }),
+    ]);
 
     return {
       total,
       visible,
       hidden,
-      today,
-      this_week: thisWeek,
-      this_month: thisMonth,
+      today: todayCount,
+      this_week: thisWeekCount,
+      this_month: thisMonthCount,
     };
   }
 }

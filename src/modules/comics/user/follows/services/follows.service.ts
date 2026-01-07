@@ -1,25 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ComicFollow } from '@/shared/entities/comic-follow.entity';
-import { ComicStats } from '@/shared/entities/comic-stats.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 
 @Injectable()
 export class FollowsService {
-  private get statsRepo(): Repository<ComicStats> {
-    return this.repo.manager.getRepository(ComicStats);
-  }
-
   constructor(
-    @InjectRepository(ComicFollow) private readonly repo: Repository<ComicFollow>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getByUser(userId: number) {
-    return this.repo.find({
+    return this.prisma.comicFollow.findMany({
       where: { user_id: userId },
-      relations: ['comic'],
-      order: { created_at: 'DESC' },
+      include: { comic: true },
+      orderBy: { created_at: 'desc' },
     });
   }
 
@@ -29,7 +22,7 @@ export class FollowsService {
       throw new Error('User not authenticated');
     }
 
-    const existing = await this.repo.findOne({
+    const existing = await this.prisma.comicFollow.findFirst({
       where: { user_id: userId, comic_id: comicId },
     });
 
@@ -37,11 +30,12 @@ export class FollowsService {
       return existing;
     }
 
-    const follow = this.repo.create({
-      user_id: userId,
-      comic_id: comicId,
+    const saved = await this.prisma.comicFollow.create({
+      data: {
+        user_id: userId,
+        comic_id: comicId,
+      },
     });
-    const saved = await this.repo.save(follow);
 
     // Sync follow count
     await this.syncFollowCount(comicId);
@@ -55,7 +49,9 @@ export class FollowsService {
       throw new Error('User not authenticated');
     }
 
-    await this.repo.delete({ user_id: userId, comic_id: comicId });
+    await this.prisma.comicFollow.deleteMany({
+      where: { user_id: userId, comic_id: comicId },
+    });
 
     // Sync follow count
     await this.syncFollowCount(comicId);
@@ -67,16 +63,27 @@ export class FollowsService {
    * Sync follow count vào comic_stats
    */
   private async syncFollowCount(comicId: number) {
-    const followCount = await this.repo.count({
-      where: { comic_id: comicId } as any,
+    const followCount = await this.prisma.comicFollow.count({
+      where: { comic_id: comicId },
     });
 
-    let stats = await this.statsRepo.findOne({ where: { comic_id: comicId } });
+    const stats = await this.prisma.comicStats.findUnique({ where: { comic_id: comicId } });
     if (!stats) {
-      stats = this.statsRepo.create({ comic_id: comicId });
+      await this.prisma.comicStats.create({
+        data: {
+          comic_id: comicId,
+          view_count: 0,
+          follow_count: followCount,
+          rating_count: 0,
+          rating_sum: 0,
+        },
+      });
+    } else {
+      await this.prisma.comicStats.update({
+        where: { comic_id: comicId },
+        data: { follow_count: followCount },
+      });
     }
-    stats.follow_count = followCount;
-    await this.statsRepo.save(stats);
   }
 
   async isFollowing(comicId: number): Promise<boolean> {
@@ -85,7 +92,7 @@ export class FollowsService {
       return false;
     }
 
-    const follow = await this.repo.findOne({
+    const follow = await this.prisma.comicFollow.findFirst({
       where: { user_id: userId, comic_id: comicId },
     });
     return !!follow;

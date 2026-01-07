@@ -1,20 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ReadingHistory } from '@/shared/entities/reading-history.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 
 @Injectable()
 export class ReadingHistoryService {
   constructor(
-    @InjectRepository(ReadingHistory) private readonly repo: Repository<ReadingHistory>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getByUser(userId: number) {
-    return this.repo.find({
+    return this.prisma.readingHistory.findMany({
       where: { user_id: userId },
-      relations: ['comic', 'chapter'],
-      order: { updated_at: 'DESC' },
+      include: {
+        comic: true,
+        chapter: true,
+      },
+      orderBy: { updated_at: 'desc' },
     });
   }
 
@@ -24,21 +25,37 @@ export class ReadingHistoryService {
       throw new Error('User not authenticated');
     }
 
-    const existing = await this.repo.findOne({
-      where: { user_id: userId, comic_id: comicId },
+    const existing = await this.prisma.readingHistory.findFirst({
+      where: {
+        user_id: userId,
+        comic_id: comicId,
+      },
     });
 
     if (existing) {
-      existing.chapter_id = chapterId;
-      return this.repo.save(existing);
+      return this.prisma.readingHistory.update({
+        where: { id: existing.id },
+        data: {
+          chapter_id: chapterId,
+        },
+        include: {
+          comic: true,
+          chapter: true,
+        },
+      });
     }
 
-    const newHistory = this.repo.create({
-      user_id: userId,
-      comic_id: comicId,
-      chapter_id: chapterId,
+    return this.prisma.readingHistory.create({
+      data: {
+        user_id: userId,
+        comic_id: comicId,
+        chapter_id: chapterId,
+      },
+      include: {
+        comic: true,
+        chapter: true,
+      },
     });
-    return this.repo.save(newHistory);
   }
 
   async delete(comicId: number) {
@@ -47,7 +64,13 @@ export class ReadingHistoryService {
       throw new Error('User not authenticated');
     }
 
-    await this.repo.delete({ user_id: userId, comic_id: comicId });
+    await this.prisma.readingHistory.deleteMany({
+      where: {
+        user_id: userId,
+        comic_id: comicId,
+      },
+    });
+
     return { deleted: true };
   }
 }

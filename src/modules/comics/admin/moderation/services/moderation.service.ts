@@ -1,53 +1,63 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Comment } from '@/shared/entities/comment.entity';
-import { ComicReview } from '@/shared/entities/comic-review.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 
 @Injectable()
 export class ModerationService {
   constructor(
-    @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
-    @InjectRepository(ComicReview) private readonly reviewRepo: Repository<ComicReview>,
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
    * Ẩn comment
    */
   async hideComment(commentId: number) {
-    const comment = await this.commentRepo.findOne({ where: { id: commentId } });
+    const comment = await this.prisma.comment.findFirst({
+      where: { id: commentId, deleted_at: null },
+    });
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
 
-    comment.status = 'hidden';
-    return this.commentRepo.save(comment);
+    return this.prisma.comment.update({
+      where: { id: commentId },
+      data: { status: 'hidden' },
+    });
   }
 
   /**
    * Hiện comment
    */
   async showComment(commentId: number) {
-    const comment = await this.commentRepo.findOne({ where: { id: commentId } });
+    const comment = await this.prisma.comment.findFirst({
+      where: { id: commentId, deleted_at: null },
+    });
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
 
-    comment.status = 'visible';
-    return this.commentRepo.save(comment);
+    return this.prisma.comment.update({
+      where: { id: commentId },
+      data: { status: 'visible' },
+    });
   }
 
   /**
    * Ẩn review
    */
   async hideReview(reviewId: number) {
-    const review = await this.reviewRepo.findOne({ where: { id: reviewId } });
+    const review = await this.prisma.comicReview.findFirst({
+      where: { id: reviewId, deleted_at: null },
+    });
     if (!review) {
       throw new NotFoundException('Review not found');
     }
 
     // Soft delete review
-    await this.reviewRepo.softRemove(review);
+    await this.prisma.comicReview.update({
+      where: { id: reviewId },
+      data: { deleted_at: new Date() },
+    });
+
     return { hidden: true };
   }
 
@@ -59,13 +69,28 @@ export class ModerationService {
 
     // Có thể thêm logic để filter comments cần moderation
     // Ví dụ: comments có từ khóa spam, hoặc được report
-    const [data, total] = await this.commentRepo.findAndCount({
-      where: { status: 'visible' } as any,
-      relations: ['user', 'comic', 'chapter'],
-      order: { created_at: 'DESC' },
-      skip,
-      take: limit,
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.comment.findMany({
+        where: {
+          status: 'visible',
+          deleted_at: null,
+        },
+        include: {
+          user: true,
+          comic: true,
+          chapter: true,
+        },
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.comment.count({
+        where: {
+          status: 'visible',
+          deleted_at: null,
+        },
+      }),
+    ]);
 
     return {
       data,
