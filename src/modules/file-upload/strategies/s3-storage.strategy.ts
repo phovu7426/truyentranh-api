@@ -44,13 +44,12 @@ export class S3StorageStrategy implements IUploadStrategy {
     const ext = path.extname(file.originalname);
     const filename = `${timestamp}-${randomString}${ext}`;
     
-    // Upload lên S3
+    // Upload lên S3/MinIO (phần quyền truy cập public/private xử lý bằng bucket policy, không dùng ACL)
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: filename,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: 'public-read', // Cho phép public access
     });
     
     await this.s3Client.send(command);
