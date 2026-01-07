@@ -1,31 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-import { Contact } from '@/shared/entities/contact.entity';
-import { ContactStatus } from '@/shared/enums/contact-status.enum';
-import { User } from '@/shared/entities/user.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { ContactStatus } from '@/shared/enums/types/contact-status.enum';
 
 @Injectable()
 export class SeedContacts {
   private readonly logger = new Logger(SeedContacts.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async seed(): Promise<void> {
     this.logger.log('Seeding contacts...');
 
-    const contactRepository = this.dataSource.getRepository(Contact);
-    const userRepo = this.dataSource.getRepository(User);
-
     // Check if contacts already exist
-    const existingCount = await contactRepository.count();
+    const existingCount = await this.prisma.contact.count();
     if (existingCount > 0) {
       this.logger.log(`Contacts already exist (${existingCount} records). Skipping seeding.`);
       return;
     }
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
-    const defaultUserId = adminUser?.id ?? 1;
+    const adminUser = await this.prisma.user.findFirst({ where: { username: 'admin' } });
+    const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
     const contacts = [
       {
@@ -72,14 +67,13 @@ export class SeedContacts {
     ];
 
     for (const contactData of contacts) {
-      const contact = contactRepository.create({
-        ...contactData,
-        created_user_id: defaultUserId,
-        updated_user_id: defaultUserId,
-        replied_at: contactData.reply ? new Date() : null,
-        replied_by: contactData.reply ? defaultUserId : null,
+      await this.prisma.contact.create({
+        data: {
+          ...contactData,
+          replied_at: contactData.reply ? new Date() : null,
+          replied_by: contactData.reply ? defaultUserId : null,
+        },
       });
-      await contactRepository.save(contact);
       this.logger.log(`Created contact: ${contactData.name} (${contactData.email})`);
     }
 
@@ -88,7 +82,7 @@ export class SeedContacts {
 
   async clear(): Promise<void> {
     this.logger.log('Clearing contacts...');
-    await this.dataSource.getRepository(Contact).clear();
+    await this.prisma.contact.deleteMany({});
   }
 }
 

@@ -1,9 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
-import { EmailConfig } from '@/shared/entities/email-config.entity';
 import { CacheService } from '@/common/services/cache.service';
 
 export interface SendMailOptions {
@@ -34,25 +32,23 @@ export class MailService {
   private readonly CACHE_KEY = 'mail:active-config';
   private readonly CACHE_TTL = 600; // 10 minutes
   private transporterCache: Transporter | null = null;
-  private configCache: EmailConfig | null = null;
+  private configCache: any | null = null;
 
   constructor(
-    @InjectRepository(EmailConfig)
-    private readonly emailConfigRepository: Repository<EmailConfig>,
+    private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
   ) {}
 
-  private async getActiveConfig(): Promise<EmailConfig> {
+  private async getActiveConfig(): Promise<any> {
     if (this.configCache) {
       return this.configCache;
     }
 
-    const config = await this.cacheService.getOrSet<EmailConfig>(
+    const config = await this.cacheService.getOrSet<any>(
       this.CACHE_KEY,
       async () => {
-        const configData = await this.emailConfigRepository.findOne({
-          where: {} as any,
-          order: { id: 'ASC' },
+        const configData = await this.prisma.emailConfig.findFirst({
+          orderBy: { id: 'asc' },
         });
 
         if (!configData) {

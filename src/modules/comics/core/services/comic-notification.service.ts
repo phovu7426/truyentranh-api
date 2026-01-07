@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { NotificationType } from '@/shared/entities/notification.entity';
+import { NotificationType } from '@/shared/enums/types/notification-type.enum';
 
 @Injectable()
 export class ComicNotificationService {
@@ -41,7 +41,7 @@ export class ComicNotificationService {
           user_id: BigInt(Number(follow.user_id)),
           title: `Chapter mới: ${chapter.title}`,
           message: `${comic.title} đã có chapter mới: ${chapter.chapter_label || chapter.chapter_index}`,
-          type: NotificationType.INFO as any,
+          type: NotificationType.info as any,
           data: {
             comic_id: Number(comic.id),
             comic_slug: comic.slug,
@@ -78,7 +78,7 @@ export class ComicNotificationService {
         user_id: parentComment.user_id,
         title: 'Có người trả lời bình luận của bạn',
         message: 'Bạn có một phản hồi mới cho bình luận của bạn',
-        type: NotificationType.INFO as any,
+        type: NotificationType.info as any,
         data: {
           comment_id: commentId,
           parent_comment_id: parentCommentId,

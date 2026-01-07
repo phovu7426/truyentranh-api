@@ -1,5 +1,5 @@
 import { IsString, IsOptional, MaxLength } from 'class-validator';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 export class UpdateBannerLocationDto {
     @IsString()

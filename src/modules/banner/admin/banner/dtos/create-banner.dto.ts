@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, IsUrl, MaxLength, IsInt, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
-import { BannerLinkTarget } from '@/shared/entities/banner.entity';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
+import { BannerLinkTarget } from '@/shared/enums/types/banner-link-target.enum';
 
 export class CreateBannerDto {
     @IsString()
@@ -65,7 +65,7 @@ export class CreateBannerDto {
     sort_order?: number = 0;
 
     @IsOptional()
-    status?: BasicStatus = BasicStatus.Active;
+    status?: BasicStatus = BasicStatus.active;
 
     @IsOptional()
     @Type(() => Date)

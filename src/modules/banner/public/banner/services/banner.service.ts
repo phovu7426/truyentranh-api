@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Banner, BannerLocation } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 import { PrismaListService, PrismaListBag } from '@/common/base/services/prisma/prisma-list.service';
 
 type PublicBannerBag = PrismaListBag & {
@@ -30,7 +30,7 @@ export class PublicBannerService extends PrismaListService<PublicBannerBag> {
         const now = new Date();
         const prepared: Prisma.BannerWhereInput = {
             ...(filters || {}),
-            status: BasicStatus.Active as any,
+            status: BasicStatus.active as any,
             start_date: {
                 lte: now,
             } as any,
@@ -68,7 +68,7 @@ export class PublicBannerService extends PrismaListService<PublicBannerBag> {
         const location = await this.prisma.bannerLocation.findFirst({
             where: {
                 code: locationCode,
-                status: BasicStatus.Active as any,
+                status: BasicStatus.active as any,
             },
         });
 
@@ -89,7 +89,7 @@ export class PublicBannerService extends PrismaListService<PublicBannerBag> {
         [locationCode: string]: PublicBannerBag['Model'][];
     }> {
         const where: Prisma.BannerLocationWhereInput = {
-            status: BasicStatus.Active as any,
+            status: BasicStatus.active as any,
             ...(locationCode ? { code: locationCode } : {}),
         };
 
@@ -117,7 +117,7 @@ export class PublicBannerService extends PrismaListService<PublicBannerBag> {
     async findBannerById(id: number): Promise<PublicBannerBag['Model']> {
         // Tận dụng getOne với relations và filters
         const banner = await this.getOne(
-            { id: BigInt(id), status: BasicStatus.Active as any } as any,
+            { id: BigInt(id), status: BasicStatus.active as any } as any,
             {
                 include: {
                     location: true,

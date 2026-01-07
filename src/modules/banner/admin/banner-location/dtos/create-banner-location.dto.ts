@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 export class CreateBannerLocationDto {
     @IsString()
@@ -18,5 +18,5 @@ export class CreateBannerLocationDto {
     description?: string;
 
     @IsOptional()
-    status?: BasicStatus = BasicStatus.Active;
+    status?: BasicStatus = BasicStatus.active;
 }

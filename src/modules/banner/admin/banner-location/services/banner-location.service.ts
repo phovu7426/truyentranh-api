@@ -1,7 +1,7 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { Prisma, BannerLocation } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 
 type BannerLocationBag = PrismaCrudBag & {

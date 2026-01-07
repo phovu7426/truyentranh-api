@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { ContactStatus } from '@/shared/enums/contact-status.enum';
+import { ContactStatus } from '@/shared/enums/types/contact-status.enum';
 import { CreateContactDto } from '@/modules/contact/public/contact/dtos/create-contact.dto';
 
 @Injectable()

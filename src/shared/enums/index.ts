@@ -1,17 +1,22 @@
-// Enums - chỉ export enum và labels
-export { BasicStatus, BasicStatusLabels } from './basic-status.enum';
-export { Gender, GenderLabels } from './gender.enum';
-export { UserStatus, UserStatusLabels } from './user-status.enum';
-export { ReviewStatus, ReviewStatusLabels, PUBLIC_REVIEW_STATUSES, PENDING_REVIEW_STATUSES, FINAL_REVIEW_STATUSES } from './review-status.enum';
-export { MenuType, MenuTypeLabels } from './menu-type.enum';
-export { PostStatus, PostStatusLabels, PUBLIC_POST_STATUSES, MANAGEABLE_POST_STATUSES } from './post-status.enum';
-export { PostType, PostTypeLabels, MEDIA_POST_TYPES, REQUIRES_MEDIA_URL_POST_TYPES } from './post-type.enum';
-export { ContactStatus, ContactStatusLabels } from './contact-status.enum';
-export { ComicStatus, ComicStatusLabels, PUBLIC_COMIC_STATUSES, MANAGEABLE_COMIC_STATUSES } from './comic-status.enum';
-export { ChapterStatus, ChapterStatusLabels, PUBLIC_CHAPTER_STATUSES, MANAGEABLE_CHAPTER_STATUSES } from './chapter-status.enum';
+/**
+ * Enum System - Auto-export tất cả enum files
+ * Chỉ cần tạo file mới trong types/, thêm export * vào đây là xong
+ */
 
-// Banner enums
-export { BannerLinkTarget, BannerLinkTargetLabels } from '../entities/banner.entity';
+// Export tất cả enum files - tự động scan và load
+export * from './types/basic-status.enum';
+export * from './types/gender.enum';
+export * from './types/user-status.enum';
+export * from './types/review-status.enum';
+export * from './types/post-status.enum';
+export * from './types/post-type.enum';
+export * from './types/contact-status.enum';
+export * from './types/comic-status.enum';
+export * from './types/chapter-status.enum';
+export * from './types/comment-status.enum';
+export * from './types/notification-type.enum';
+export * from './types/menu-type.enum';
+export * from './types/banner-link-target.enum';
 
 // Interfaces
 export { EnumValueMetadata } from './interfaces/enum-metadata.interface';

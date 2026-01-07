@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, Contact } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { ContactStatus } from '@/shared/enums/contact-status.enum';
+import { ContactStatus } from '@/shared/enums/types/contact-status.enum';
 import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 
 type ContactBag = PrismaCrudBag & {

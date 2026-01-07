@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Banner } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 
 type AdminBannerBag = PrismaCrudBag & {
@@ -73,7 +73,7 @@ export class BannerService extends PrismaCrudService<AdminBannerBag> {
     ): Promise<Prisma.BannerWhereInput | true | undefined> {
         const prepared: Prisma.BannerWhereInput = { ...(filters || {}) };
 
-        if ((prepared as any).status === BasicStatus.Active) {
+        if ((prepared as any).status === BasicStatus.active) {
             const now = new Date();
             prepared.start_date = {
                 lte: now,
@@ -113,7 +113,7 @@ export class BannerService extends PrismaCrudService<AdminBannerBag> {
      */
     async findByLocationCode(locationCode: string): Promise<AdminBannerBag['Model'][]> {
         const location = await this.prisma.bannerLocation.findFirst({
-            where: { code: locationCode, status: BasicStatus.Active as any },
+            where: { code: locationCode, status: BasicStatus.active as any },
         });
 
         if (!location) {
@@ -122,7 +122,7 @@ export class BannerService extends PrismaCrudService<AdminBannerBag> {
 
         // Tận dụng getList với filters (date range sẽ được filter ở DB level)
         const result = await this.getList(
-            { location_id: location.id, status: BasicStatus.Active as any } as any,
+            { location_id: location.id, status: BasicStatus.active as any } as any,
             { limit: 1000, page: 1 },
         );
 

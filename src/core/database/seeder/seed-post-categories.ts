@@ -1,31 +1,26 @@
-import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
-import { PostCategory } from '@/shared/entities/post-category.entity';
-import { User } from '@/shared/entities/user.entity';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 @Injectable()
 export class SeedPostCategories {
   private readonly logger = new Logger(SeedPostCategories.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly prisma: PrismaService) { }
 
   async seed(): Promise<void> {
     this.logger.log('Seeding post categories...');
 
-    const categoryRepo = this.dataSource.getRepository(PostCategory);
-    const userRepo = this.dataSource.getRepository(User);
-
     // Check if categories already exist
-    const existingCategories = await categoryRepo.count();
+    const existingCategories = await this.prisma.postCategory.count();
     if (existingCategories > 0) {
       this.logger.log('Post categories already seeded, skipping...');
       return;
     }
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
-    const defaultUserId = adminUser?.id ?? 1;
+    const adminUser = await this.prisma.user.findFirst({ where: { username: 'admin' } });
+    const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
     // Seed 30 categories - mix of parent and child categories
     const categoriesData = [
@@ -71,13 +66,13 @@ export class SeedPostCategories {
       { name: 'Content Marketing', slug: 'content-marketing', description: 'Marketing nội dung', status: 'active', sort_order: 29, parent_slug: 'kinh-doanh' },
     ];
 
-    const createdCategories: Map<string, PostCategory> = new Map();
+    const createdCategories: Map<string, any> = new Map();
 
     // Create categories in order (parents first)
     const sortedCategories = this.sortCategoriesByParent(categoriesData);
 
     for (const categoryData of sortedCategories) {
-      let parentCategory: PostCategory | null = null;
+      let parentCategory: any | null = null;
       if (categoryData.parent_slug) {
         parentCategory = createdCategories.get(categoryData.parent_slug) || null;
         if (!parentCategory) {
@@ -85,17 +80,18 @@ export class SeedPostCategories {
         }
       }
 
-      const category = categoryRepo.create({
-        name: categoryData.name,
-        slug: categoryData.slug,
-        description: categoryData.description,
-        status: categoryData.status === 'active' ? BasicStatus.Active : BasicStatus.Inactive,
-        sort_order: categoryData.sort_order,
-        parent: parentCategory,
-        created_user_id: defaultUserId,
-        updated_user_id: defaultUserId,
+      const saved = await this.prisma.postCategory.create({
+        data: {
+          name: categoryData.name,
+          slug: categoryData.slug,
+          description: categoryData.description,
+          status: categoryData.status === 'active' ? BasicStatus.active : BasicStatus.inactive,
+          sort_order: categoryData.sort_order,
+          parent_id: parentCategory ? parentCategory.id : null,
+          created_user_id: defaultUserId,
+          updated_user_id: defaultUserId,
+        },
       });
-      const saved = await categoryRepo.save(category);
       createdCategories.set(saved.slug, saved);
       this.logger.log(`Created category: ${saved.name}${parentCategory ? ` (parent: ${parentCategory.name})` : ''}`);
     }
@@ -136,8 +132,7 @@ export class SeedPostCategories {
 
   async clear(): Promise<void> {
     this.logger.log('Clearing post categories...');
-    const categoryRepo = this.dataSource.getRepository(PostCategory);
-    await categoryRepo.clear();
+    await this.prisma.postCategory.deleteMany({});
     this.logger.log('Post categories cleared');
   }
 }

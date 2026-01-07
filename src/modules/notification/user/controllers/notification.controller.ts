@@ -15,7 +15,7 @@ import { GetNotificationsDto } from '@/modules/notification/user/dtos/get-notifi
 import { AuthUser } from '@/common/interfaces/auth-user.interface';
 import { prepareQuery } from '@/common/base/utils/list-query.helper';
 import { LogRequest } from '@/common/decorators/log-request.decorator';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 @Controller('user/notifications')
 @UseGuards(JwtAuthGuard, RbacGuard)
@@ -42,7 +42,7 @@ export class NotificationController {
   @Permission('notification.manage')
   async getUnreadCount(@Request() req: { user: AuthUser }) {
     const result = await this.notificationService.getList(
-      { user_id: req.user.id, is_read: false, status: BasicStatus.Active },
+      { user_id: req.user.id, is_read: false, status: BasicStatus.active },
       { page: 1, limit: 1 }
     );
     return { success: true, data: { count: result.meta?.totalItems || 0 }, message: 'Unread count retrieved successfully' };

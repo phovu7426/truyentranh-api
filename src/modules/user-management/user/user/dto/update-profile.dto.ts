@@ -8,7 +8,7 @@ import {
   IsNotEmpty,
   ValidateIf
 } from 'class-validator';
-import { Gender } from '@/shared/enums/gender.enum';
+import { Gender } from '@/shared/enums/types/gender.enum';
 import { Transform } from 'class-transformer';
 
 export class UpdateProfileDto {

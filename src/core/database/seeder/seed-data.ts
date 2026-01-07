@@ -1,5 +1,5 @@
-import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { SeedRoles } from '@/core/database/seeder/seed-roles';
 import { SeedPermissions } from '@/core/database/seeder/seed-permissions';
 import { SeedUsers } from '@/core/database/seeder/seed-users';
@@ -24,7 +24,7 @@ export class SeedService {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly prisma: PrismaService,
     private readonly seedPermissions: SeedPermissions,
     private readonly seedRoles: SeedRoles,
     private readonly seedUsers: SeedUsers,
@@ -96,93 +96,48 @@ export class SeedService {
     this.logger.log('Clearing database...');
 
     try {
-      const queryRunner = this.dataSource.createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
+      // Clear in reverse order (children first, then parents)
+      // Clear junction tables first (many-to-many)
+      await this.prisma.postPosttag.deleteMany({});
+      await this.prisma.postPostcategory.deleteMany({});
+      await this.prisma.comicCategoryOnComic.deleteMany({});
+      await this.prisma.userRoleAssignment.deleteMany({});
+      await this.prisma.userGroup.deleteMany({});
+      await this.prisma.roleHasPermission.deleteMany({});
+      await this.prisma.roleContext.deleteMany({});
+      await this.prisma.menuPermission.deleteMany({});
 
-      try {
-        // Disable foreign key checks temporarily
-        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+      // Clear main tables
+      await this.prisma.chapterPage.deleteMany({});
+      await this.prisma.chapter.deleteMany({});
+      await this.prisma.comicStats.deleteMany({});
+      await this.prisma.comic.deleteMany({});
+      await this.prisma.comicCategory.deleteMany({});
+      
+      await this.prisma.post.deleteMany({});
+      await this.prisma.postTag.deleteMany({});
+      await this.prisma.postCategory.deleteMany({});
+      
+      await this.prisma.banner.deleteMany({});
+      await this.prisma.bannerLocation.deleteMany({});
+      
+      await this.prisma.contact.deleteMany({});
+      
+      await this.prisma.menu.deleteMany({});
+      
+      await this.prisma.notification.deleteMany({});
+      
+      await this.prisma.group.deleteMany({});
+      await this.prisma.context.deleteMany({});
+      
+      await this.prisma.user.deleteMany({});
+      await this.prisma.role.deleteMany({});
+      await this.prisma.permission.deleteMany({});
+      
+      await this.prisma.emailConfig.deleteMany({});
+      await this.prisma.generalConfig.deleteMany({});
 
-        // Helper function to safely truncate table
-        const truncateTable = async (tableName: string) => {
-          try {
-            await queryRunner.query(`TRUNCATE TABLE \`${tableName}\``);
-          } catch (error: any) {
-            // If table doesn't exist, just log and continue
-            if (error.code === 'ER_NO_SUCH_TABLE') {
-              this.logger.warn(`Table ${tableName} does not exist, skipping...`);
-            } else {
-              throw error;
-            }
-          }
-        };
-
-        // Clear in reverse order (children first, then parents)
-        // Clear junction tables first (many-to-many)
-        await truncateTable('post_posttag');
-        await truncateTable('post_postcategory');
-        await truncateTable('comic_category');
-        await truncateTable('user_role_assignments');
-        await truncateTable('user_groups');
-        await truncateTable('role_has_permissions');
-
-        // Clear main tables
-        await truncateTable('posts');
-        await truncateTable('post_posttag');
-        await truncateTable('post_postcategory');
-        await truncateTable('posttag');
-        await truncateTable('postcategory');
-        
-        // Clear comics tables
-        await truncateTable('chapter_pages');
-        await truncateTable('chapters');
-        await truncateTable('comic_stats');
-        await truncateTable('comics');
-        await truncateTable('comic_categories');
-
-        // ecommerce junctions first
-        await truncateTable('product_category');
-        await truncateTable('product_variant_attributes');
-        await truncateTable('stock_transfers');
-        await truncateTable('warehouse_inventory');
-        await truncateTable('warehouses');
-
-        // ecommerce main tables
-        await truncateTable('order_items');
-        await truncateTable('payments');
-        await truncateTable('orders');
-        await truncateTable('shipping_methods');
-        await truncateTable('carts');
-        await truncateTable('cart_headers');
-        await truncateTable('product_attribute_values');
-        await truncateTable('product_attributes');
-        await truncateTable('product_variants');
-        await truncateTable('products');
-        await truncateTable('product_categories');
-        await truncateTable('profiles');
-        await truncateTable('users');
-        await truncateTable('roles');
-        await truncateTable('permissions');
-
-        // Banner tables
-        await truncateTable('banners');
-        await truncateTable('banner_locations');
-
-        // Contact tables
-        await truncateTable('contacts');
-
-        // Re-enable foreign key checks
-        await queryRunner.query('SET FOREIGN_KEY_CHECKS = 1');
-
-        await queryRunner.commitTransaction();
-        this.logger.log('Database cleared successfully');
-      } catch (error) {
-        await queryRunner.rollbackTransaction();
-        throw error;
-      } finally {
-        await queryRunner.release();
-      }
+      this.logger.log('Database cleared successfully');
     } catch (error) {
       this.logger.error('Database clearing failed', error);
       throw error;
@@ -191,14 +146,6 @@ export class SeedService {
 
   async clearDatabase(): Promise<void> {
     this.logger.log('Clearing database...');
-
-    const entities = this.dataSource.entityMetadatas;
-
-    for (const entity of entities) {
-      const repository = this.dataSource.getRepository(entity.name);
-      await repository.clear();
-    }
-
-    this.logger.log('Database cleared successfully');
+    await this.clearAll();
   }
 }

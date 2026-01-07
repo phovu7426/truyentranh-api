@@ -1,39 +1,30 @@
-import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
-import { Menu, MenuPermission } from '@/shared/entities/menu.entity';
-import { Permission } from '@/shared/entities/permission.entity';
-import { User } from '@/shared/entities/user.entity';
-import { MenuType } from '@/shared/enums/menu-type.enum';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { MenuType } from '@/shared/enums/types/menu-type.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 @Injectable()
 export class SeedMenus {
   private readonly logger = new Logger(SeedMenus.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly prisma: PrismaService) { }
 
   async seed(): Promise<void> {
     this.logger.log('Seeding menus...');
 
-    const menuRepo = this.dataSource.getRepository(Menu);
-    const permRepo = this.dataSource.getRepository(Permission);
-    const userRepo = this.dataSource.getRepository(User);
-
     // Xóa tất cả menu cũ để tạo lại từ đầu
     this.logger.log('Clearing existing menus...');
-    await menuRepo
-      .createQueryBuilder()
-      .delete()
-      .execute();
+    await this.prisma.menuPermission.deleteMany({});
+    await this.prisma.menu.deleteMany({});
     this.logger.log('Cleared all existing menus');
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'systemadmin' } as any });
-    const defaultUserId = adminUser?.id ?? 1;
+    const adminUser = await this.prisma.user.findFirst({ where: { username: 'systemadmin' } });
+    const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
     // Get permissions
-    const permissions = await permRepo.find();
-    const permMap = new Map<string, Permission>();
+    const permissions = await this.prisma.permission.findMany();
+    const permMap = new Map<string, any>();
     permissions.forEach(perm => permMap.set(perm.code, perm));
 
     // Seed menus - Mỗi menu chỉ có 1 bản ghi duy nhất, không phân biệt context
@@ -47,8 +38,8 @@ export class SeedMenus {
         path: '/admin/dashboard',
         api_path: 'api/admin/dashboard',
         icon: '📊',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 1,
         is_public: false,
@@ -63,8 +54,8 @@ export class SeedMenus {
         path: '/admin/users',
         api_path: 'api/admin/users',
         icon: '👥',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 10,
         is_public: false,
@@ -78,8 +69,8 @@ export class SeedMenus {
         path: '/admin/users',
         api_path: 'api/admin/users',
         icon: '👤',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'account-management',
         sort_order: 10,
         is_public: false,
@@ -92,8 +83,8 @@ export class SeedMenus {
         path: '/admin/roles',
         api_path: 'api/admin/roles',
         icon: '👔',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'account-management',
         sort_order: 20,
         is_public: false,
@@ -106,8 +97,8 @@ export class SeedMenus {
         path: '/admin/permissions',
         api_path: 'api/admin/permissions',
         icon: '🔑',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'account-management',
         sort_order: 30,
         is_public: false,
@@ -122,8 +113,8 @@ export class SeedMenus {
         path: '/admin/groups',
         api_path: 'api/admin/groups',
         icon: '👪',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 20,
         is_public: false,
@@ -137,8 +128,8 @@ export class SeedMenus {
         path: '/admin/groups',
         api_path: 'api/admin/groups',
         icon: '👪',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'group-management',
         sort_order: 10,
         is_public: false,
@@ -151,8 +142,8 @@ export class SeedMenus {
         path: '/admin/contexts',
         api_path: 'api/admin/contexts',
         icon: '🌐',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'group-management',
         sort_order: 20,
         is_public: false,
@@ -167,8 +158,8 @@ export class SeedMenus {
         path: '/admin/system-config/general',
         api_path: 'api/admin/system-config/general',
         icon: '⚙️',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 30,
         is_public: false,
@@ -182,8 +173,8 @@ export class SeedMenus {
         path: '/admin/system-config/general',
         api_path: 'api/admin/system-config/general',
         icon: '📋',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'config-management',
         sort_order: 10,
         is_public: false,
@@ -196,8 +187,8 @@ export class SeedMenus {
         path: '/admin/system-config/email',
         api_path: 'api/admin/system-config/email',
         icon: '📧',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'config-management',
         sort_order: 20,
         is_public: false,
@@ -212,8 +203,8 @@ export class SeedMenus {
         path: '/admin/menus',
         api_path: 'api/admin/menus',
         icon: '📑',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 31,
         is_public: false,
@@ -228,8 +219,8 @@ export class SeedMenus {
         path: '/admin/comics',
         api_path: 'api/admin/comics',
         icon: '📚',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 40,
         is_public: false,
@@ -243,8 +234,8 @@ export class SeedMenus {
         path: '/admin/comics',
         api_path: 'api/admin/comics',
         icon: '📖',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'comic-management',
         sort_order: 10,
         is_public: false,
@@ -257,8 +248,8 @@ export class SeedMenus {
         path: '/admin/comic-categories',
         api_path: 'api/admin/comic-categories',
         icon: '📂',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'comic-management',
         sort_order: 20,
         is_public: false,
@@ -271,8 +262,8 @@ export class SeedMenus {
         path: '/admin/chapters',
         api_path: 'api/admin/chapters',
         icon: '📑',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'comic-management',
         sort_order: 30,
         is_public: false,
@@ -287,8 +278,8 @@ export class SeedMenus {
         path: '/admin/posts',
         api_path: 'api/admin/posts',
         icon: '📝',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 50,
         is_public: false,
@@ -302,8 +293,8 @@ export class SeedMenus {
         path: '/admin/posts',
         api_path: 'api/admin/posts',
         icon: '📄',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'post-management',
         sort_order: 10,
         is_public: false,
@@ -316,8 +307,8 @@ export class SeedMenus {
         path: '/admin/post-categories',
         api_path: 'api/admin/post-categories',
         icon: '📂',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'post-management',
         sort_order: 20,
         is_public: false,
@@ -330,8 +321,8 @@ export class SeedMenus {
         path: '/admin/post-tags',
         api_path: 'api/admin/post-tags',
         icon: '🏷️',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'post-management',
         sort_order: 30,
         is_public: false,
@@ -346,8 +337,8 @@ export class SeedMenus {
         path: '/admin/banners',
         api_path: 'api/admin/banners',
         icon: '🖼️',
-        type: MenuType.GROUP,
-        status: BasicStatus.Active,
+        type: MenuType.group,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 100,
         is_public: false,
@@ -361,8 +352,8 @@ export class SeedMenus {
         path: '/admin/banners',
         api_path: 'api/admin/banners',
         icon: '🖼️',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'banner-management',
         sort_order: 10,
         is_public: false,
@@ -375,8 +366,8 @@ export class SeedMenus {
         path: '/admin/banner-locations',
         api_path: 'api/admin/banner-locations',
         icon: '📍',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_code: 'banner-management',
         sort_order: 20,
         is_public: false,
@@ -391,8 +382,8 @@ export class SeedMenus {
         path: '/admin/contacts',
         api_path: 'api/admin/contacts',
         icon: '📞',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 110,
         is_public: false,
@@ -407,8 +398,8 @@ export class SeedMenus {
         path: '/admin/notifications',
         api_path: 'api/admin/notifications',
         icon: '🔔',
-        type: MenuType.ROUTE,
-        status: BasicStatus.Active,
+        type: MenuType.route,
+        status: BasicStatus.active,
         parent_id: null,
         sort_order: 120,
         is_public: false,
@@ -419,19 +410,19 @@ export class SeedMenus {
 
     this.logger.log(`Will create ${menuData.length} menus (mỗi menu chỉ có 1 permission)`);
 
-    const createdMenus = new Map<string, Menu>();
+    const createdMenus = new Map<string, any>();
 
     // Sort menus: parents first
     const sortedMenus = this.sortMenusByParent(menuData);
 
     for (const menuItem of sortedMenus) {
       
-      let parent: Menu | null = null;
+      let parent: any | null = null;
       if (menuItem.parent_code) {
         parent = createdMenus.get(menuItem.parent_code) || null;
         if (!parent) {
           // Tìm parent trong DB nếu chưa có trong createdMenus
-          parent = await menuRepo.findOne({ where: { code: menuItem.parent_code } as any });
+          parent = await this.prisma.menu.findFirst({ where: { code: menuItem.parent_code } });
           if (parent) {
             createdMenus.set(parent.code, parent);
           } else {
@@ -441,7 +432,7 @@ export class SeedMenus {
       }
 
       // Menu có 1 permission chính (required_permission)
-      let requiredPermission: Permission | null = null;
+      let requiredPermission: any | null = null;
       if (menuItem.permission_code) {
         requiredPermission = permMap.get(menuItem.permission_code) || null;
         if (!requiredPermission) {
@@ -449,36 +440,36 @@ export class SeedMenus {
         }
       }
 
-      const menu = menuRepo.create({
-        code: menuItem.code,
-        name: menuItem.name,
-        path: menuItem.path,
-        api_path: menuItem.api_path,
-        icon: menuItem.icon,
-        type: menuItem.type,
-        status: menuItem.status,
-        parent: parent,
-        sort_order: menuItem.sort_order,
-        is_public: menuItem.is_public,
-        show_in_menu: menuItem.show_in_menu,
-        required_permission: requiredPermission, // Permission chính
-        created_user_id: defaultUserId,
-        updated_user_id: defaultUserId,
+      const saved = await this.prisma.menu.create({
+        data: {
+          code: menuItem.code,
+          name: menuItem.name,
+          path: menuItem.path,
+          api_path: menuItem.api_path,
+          icon: menuItem.icon,
+          type: menuItem.type,
+          status: menuItem.status,
+          parent_id: parent ? parent.id : null,
+          sort_order: menuItem.sort_order,
+          is_public: menuItem.is_public,
+          show_in_menu: menuItem.show_in_menu,
+          required_permission_id: requiredPermission ? requiredPermission.id : null,
+          created_user_id: defaultUserId,
+          updated_user_id: defaultUserId,
+        },
       });
-
-      const saved = await menuRepo.save(menu);
       
       // Nếu là menu GROUP và có nhiều permissions, tạo MenuPermission records
-      if (saved.type === MenuType.GROUP && menuItem.permission_codes && Array.isArray(menuItem.permission_codes)) {
-        const menuPermissionRepo = this.dataSource.getRepository(MenuPermission);
+      if (saved.type === MenuType.group && menuItem.permission_codes && Array.isArray(menuItem.permission_codes)) {
         for (const permCode of menuItem.permission_codes) {
           const perm = permMap.get(permCode);
           if (perm) {
-            const menuPermission = menuPermissionRepo.create({
-              menu_id: saved.id,
-              permission_id: perm.id,
+            await this.prisma.menuPermission.create({
+              data: {
+                menu_id: saved.id,
+                permission_id: perm.id,
+              },
             });
-            await menuPermissionRepo.save(menuPermission);
             this.logger.log(`  → Added permission ${permCode} to menu group ${saved.code}`);
           } else {
             this.logger.warn(`  → Permission ${permCode} not found for menu group ${saved.code}`);
@@ -527,8 +518,8 @@ export class SeedMenus {
 
   async clear(): Promise<void> {
     this.logger.log('Clearing menus...');
-    const menuRepo = this.dataSource.getRepository(Menu);
-    await menuRepo.clear();
+    await this.prisma.menuPermission.deleteMany({});
+    await this.prisma.menu.deleteMany({});
     this.logger.log('Menus cleared');
   }
 }

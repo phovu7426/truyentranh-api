@@ -1,30 +1,25 @@
-import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
-import { ComicCategory } from '@/shared/entities/comic-category.entity';
-import { User } from '@/shared/entities/user.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 
 @Injectable()
 export class SeedComicCategories {
   private readonly logger = new Logger(SeedComicCategories.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly prisma: PrismaService) { }
 
   async seed(): Promise<void> {
     this.logger.log('Seeding comic categories...');
 
-    const categoryRepo = this.dataSource.getRepository(ComicCategory);
-    const userRepo = this.dataSource.getRepository(User);
-
     // Check if categories already exist
-    const existingCategories = await categoryRepo.count();
+    const existingCategories = await this.prisma.comicCategory.count();
     if (existingCategories > 0) {
       this.logger.log('Comic categories already seeded, skipping...');
       return;
     }
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
-    const defaultUserId = adminUser?.id ?? 1;
+    const adminUser = await this.prisma.user.findFirst({ where: { username: 'admin' } });
+    const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
     // Seed comic categories - các thể loại truyện tranh phổ biến
     const categoriesData = [
@@ -56,15 +51,16 @@ export class SeedComicCategories {
     ];
 
     for (const categoryData of categoriesData) {
-      const category = categoryRepo.create({
-        name: categoryData.name,
-        slug: categoryData.slug,
-        description: categoryData.description,
-        created_user_id: defaultUserId,
-        updated_user_id: defaultUserId,
+      await this.prisma.comicCategory.create({
+        data: {
+          name: categoryData.name,
+          slug: categoryData.slug,
+          description: categoryData.description,
+          created_user_id: defaultUserId,
+          updated_user_id: defaultUserId,
+        },
       });
-      await categoryRepo.save(category);
-      this.logger.log(`Created category: ${category.name}`);
+      this.logger.log(`Created category: ${categoryData.name}`);
     }
 
     this.logger.log(`Comic categories seeding completed - Total: ${categoriesData.length}`);
@@ -72,8 +68,7 @@ export class SeedComicCategories {
 
   async clear(): Promise<void> {
     this.logger.log('Clearing comic categories...');
-    const categoryRepo = this.dataSource.getRepository(ComicCategory);
-    await categoryRepo.clear();
+    await this.prisma.comicCategory.deleteMany({});
     this.logger.log('Comic categories cleared');
   }
 }

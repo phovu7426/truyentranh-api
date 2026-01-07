@@ -1,5 +1,5 @@
 import { IsOptional, IsEnum, IsBoolean } from 'class-validator';
-import { NotificationType } from '@/shared/entities/notification.entity';
+import { NotificationType } from '@/shared/enums/types/notification-type.enum';
 
 export class GetNotificationsDto {
   @IsOptional()

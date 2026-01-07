@@ -94,7 +94,7 @@ export class ChaptersService extends PrismaCrudService<ChapterBag> {
     }
 
     // Notify followers if chapter is published
-    if (entity.status === ChapterStatus.PUBLISHED) {
+    if (entity.status === ChapterStatus.published) {
       await this.notificationService.notifyNewChapter(entity);
     }
 
@@ -136,7 +136,7 @@ export class ChaptersService extends PrismaCrudService<ChapterBag> {
 
   protected async afterUpdate(entity: any, updateDto: ChapterBag['Update']): Promise<void> {
     // Notify if status changed to published
-    if ((updateDto as any).status === ChapterStatus.PUBLISHED) {
+    if ((updateDto as any).status === ChapterStatus.published) {
       const updatedChapter = await this.getOne({ id: BigInt(Number(entity.id)) });
       if (updatedChapter) {
         await this.notificationService.notifyNewChapter(updatedChapter);

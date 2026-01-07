@@ -4,7 +4,7 @@ import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
 import { RbacService } from '@/modules/rbac/services/rbac.service';
 import { RequestContext } from '@/common/utils/request-context.util';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 import { MenuTreeItem } from '@/modules/menu/admin/menu/interfaces/menu-tree-item.interface';
 
 type MenuBag = PrismaCrudBag & {
@@ -213,7 +213,7 @@ export class MenuService extends PrismaCrudService<MenuBag> {
     };
 
     if (!includeInactive) {
-      where.status = BasicStatus.Active;
+      where.status = BasicStatus.active;
     }
 
     const menus = await this.prisma.menu.findMany({

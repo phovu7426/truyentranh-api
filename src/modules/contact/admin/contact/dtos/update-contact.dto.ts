@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsEmail, MaxLength, IsEnum, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ContactStatus } from '@/shared/enums/contact-status.enum';
+import { ContactStatus } from '@/shared/enums/types/contact-status.enum';
 
 export class UpdateContactDto {
   @IsString()

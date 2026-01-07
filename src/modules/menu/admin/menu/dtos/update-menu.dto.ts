@@ -9,8 +9,8 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { MenuType } from '@/shared/enums/menu-type.enum';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
+import { MenuType } from '@/shared/enums/types/menu-type.enum';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
 
 export class UpdateMenuDto {
   @IsOptional()

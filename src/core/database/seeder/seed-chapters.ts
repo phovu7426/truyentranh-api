@@ -1,38 +1,29 @@
-import { DataSource } from 'typeorm';
 import { Injectable, Logger } from '@nestjs/common';
-import { Chapter } from '@/shared/entities/chapter.entity';
-import { ChapterPage } from '@/shared/entities/chapter-page.entity';
-import { Comic } from '@/shared/entities/comic.entity';
-import { User } from '@/shared/entities/user.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { ChapterStatus } from '@/shared/enums';
 
 @Injectable()
 export class SeedChapters {
   private readonly logger = new Logger(SeedChapters.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly prisma: PrismaService) { }
 
   async seed(): Promise<void> {
     this.logger.log('Seeding chapters...');
 
-    const chapterRepo = this.dataSource.getRepository(Chapter);
-    const pageRepo = this.dataSource.getRepository(ChapterPage);
-    const comicRepo = this.dataSource.getRepository(Comic);
-    const userRepo = this.dataSource.getRepository(User);
-
     // Check if chapters already exist
-    const existingChapters = await chapterRepo.count();
+    const existingChapters = await this.prisma.chapter.count();
     if (existingChapters > 0) {
       this.logger.log('Chapters already seeded, skipping...');
       return;
     }
 
     // Get admin user for audit fields
-    const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
-    const defaultUserId = adminUser?.id ?? 1;
+    const adminUser = await this.prisma.user.findFirst({ where: { username: 'admin' } });
+    const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
     // Get all comics
-    const comics = await comicRepo.find();
+    const comics = await this.prisma.comic.findMany();
     if (comics.length === 0) {
       this.logger.warn('No comics found. Please seed comics first.');
       return;
@@ -43,39 +34,37 @@ export class SeedChapters {
       const chaptersCount = this.getChaptersCountForComic(comic.slug);
       
       for (let i = 1; i <= chaptersCount; i++) {
-        // Create chapter
-        const chapter = chapterRepo.create({
-          comic_id: comic.id,
-          title: this.generateChapterTitle(comic.slug, i),
-          chapter_index: i,
-          chapter_label: `Chương ${i}`,
-          status: ChapterStatus.PUBLISHED,
-          view_count: Math.floor(Math.random() * 5000) + 100, // Random 100-5100 views
-          created_user_id: defaultUserId,
-          updated_user_id: defaultUserId,
-        });
-
-        const savedChapter = await chapterRepo.save(chapter);
-        this.logger.log(`Created chapter: ${savedChapter.title} for comic: ${comic.title}`);
-
         // Create pages for each chapter (random 10-30 pages)
         const pagesCount = Math.floor(Math.random() * 21) + 10;
         const pages = [];
         
         for (let pageNum = 1; pageNum <= pagesCount; pageNum++) {
-          const page = pageRepo.create({
-            chapter_id: savedChapter.id,
+          pages.push({
             page_number: pageNum,
             image_url: `https://via.placeholder.com/800x1200?text=${comic.title}+Ch${i}+Pg${pageNum}`,
             width: 800,
             height: 1200,
             file_size: Math.floor(Math.random() * 500000) + 100000, // Random 100KB-600KB
           });
-          pages.push(page);
         }
 
-        await pageRepo.save(pages);
-        this.logger.log(`Created ${pagesCount} pages for chapter: ${savedChapter.title}`);
+        // Create chapter with pages
+        const savedChapter = await this.prisma.chapter.create({
+          data: {
+            comic_id: comic.id,
+            title: this.generateChapterTitle(comic.slug, i),
+            chapter_index: i,
+            chapter_label: `Chương ${i}`,
+            status: ChapterStatus.published,
+            view_count: BigInt(Math.floor(Math.random() * 5000) + 100), // Random 100-5100 views
+            created_user_id: defaultUserId,
+            updated_user_id: defaultUserId,
+            pages: {
+              create: pages,
+            },
+          },
+        });
+        this.logger.log(`Created chapter: ${savedChapter.title} for comic: ${comic.title} with ${pagesCount} pages`);
       }
     }
 
@@ -160,14 +149,12 @@ export class SeedChapters {
 
   async clear(): Promise<void> {
     this.logger.log('Clearing chapters...');
-    const chapterRepo = this.dataSource.getRepository(Chapter);
-    const pageRepo = this.dataSource.getRepository(ChapterPage);
-
+    
     // Clear pages first (due to foreign key)
-    await pageRepo.clear();
+    await this.prisma.chapterPage.deleteMany({});
     
     // Clear chapters
-    await chapterRepo.clear();
+    await this.prisma.chapter.deleteMany({});
     
     this.logger.log('Chapters cleared');
   }

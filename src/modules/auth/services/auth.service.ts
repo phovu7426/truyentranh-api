@@ -6,7 +6,7 @@ import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { LoginDto } from '@/modules/auth/dto/login.dto';
 import { RegisterDto } from '@/modules/auth/dto/register.dto';
 import { ConfigService } from '@nestjs/config';
-import { UserStatus } from '@/shared/enums/user-status.enum';
+import { UserStatus } from '@/shared/enums/types/user-status.enum';
 import { RedisUtil } from '@/core/utils/redis.util';
 import { TokenService } from '@/modules/auth/services/token.service';
 import { TokenBlacklistService } from '@/core/security/token-blacklist.service';
@@ -65,7 +65,7 @@ export class AuthService {
       if (!isPasswordValid) {
         await this.accountLockoutService.add(scope, identifier);
         authError = 'Email hoặc mật khẩu không đúng.';
-      } else if (user.status !== UserStatus.Active) {
+      } else if (user.status !== UserStatus.active) {
         authError = 'Tài khoản đã bị khóa hoặc không hoạt động.';
       }
     }
@@ -120,7 +120,7 @@ export class AuthService {
         email: dto.email,
         phone: dto.phone ?? null,
         password: hashed,
-        status: UserStatus.Active as any,
+        status: UserStatus.active as any,
       },
     });
 

@@ -1,46 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-import { Banner } from '@/shared/entities/banner.entity';
-import { BannerLocation } from '@/shared/entities/banner-location.entity';
-import { User } from '@/shared/entities/user.entity';
-import { BasicStatus } from '@/shared/enums/basic-status.enum';
-import { BannerLinkTarget } from '@/shared/entities/banner.entity';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
+import { BasicStatus } from '@/shared/enums/types/basic-status.enum';
+import { BannerLinkTarget } from '@/shared/enums/types/banner-link-target.enum';
 
 @Injectable()
 export class SeedBanners {
     private readonly logger = new Logger(SeedBanners.name);
 
-    constructor(private readonly dataSource: DataSource) { }
+    constructor(private readonly prisma: PrismaService) { }
 
     async seed(): Promise<void> {
         this.logger.log('Seeding banners...');
 
-        const bannerRepository = this.dataSource.getRepository(Banner);
-        const bannerLocationRepository = this.dataSource.getRepository(BannerLocation);
-        const userRepo = this.dataSource.getRepository(User);
-
         // Check if banners already exist
-        const existingCount = await bannerRepository.count();
+        const existingCount = await this.prisma.banner.count();
         if (existingCount > 0) {
             this.logger.log(`Banners already exist (${existingCount} records). Skipping seeding.`);
             return;
         }
 
         // Get admin user for audit fields
-        const adminUser = await userRepo.findOne({ where: { username: 'admin' } as any });
-        const defaultUserId = adminUser?.id ?? 1;
+        const adminUser = await this.prisma.user.findFirst({ where: { username: 'admin' } });
+        const defaultUserId = adminUser ? Number(adminUser.id) : 1;
 
         // Get banner locations
-        const homeSliderLocation = await bannerLocationRepository.findOne({
+        const homeSliderLocation = await this.prisma.bannerLocation.findFirst({
             where: { code: 'home_slider' },
         });
-        const productPageLocation = await bannerLocationRepository.findOne({
+        const productPageLocation = await this.prisma.bannerLocation.findFirst({
             where: { code: 'product_page_banner' },
         });
-        const aboutUsLocation = await bannerLocationRepository.findOne({
+        const aboutUsLocation = await this.prisma.bannerLocation.findFirst({
             where: { code: 'about_us_banner' },
         });
-        const blogLocation = await bannerLocationRepository.findOne({
+        const blogLocation = await this.prisma.bannerLocation.findFirst({
             where: { code: 'blog_banner' },
         });
 
@@ -62,9 +55,9 @@ export class SeedBanners {
                 button_text: 'Xem ngay',
                 button_color: '#ff6b6b',
                 text_color: '#ffffff',
-                location_id: homeSliderLocation.id,
+                location_id: Number(homeSliderLocation.id),
                 sort_order: 1,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             {
                 title: 'Sản phẩm mới',
@@ -77,9 +70,9 @@ export class SeedBanners {
                 button_text: 'Khám phá',
                 button_color: '#4ecdc4',
                 text_color: '#ffffff',
-                location_id: homeSliderLocation.id,
+                location_id: Number(homeSliderLocation.id),
                 sort_order: 2,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             {
                 title: 'Miễn phí vận chuyển',
@@ -92,9 +85,9 @@ export class SeedBanners {
                 button_text: 'Mua sắm',
                 button_color: '#45b7d1',
                 text_color: '#ffffff',
-                location_id: homeSliderLocation.id,
+                location_id: Number(homeSliderLocation.id),
                 sort_order: 3,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             // Product page banners
             {
@@ -108,9 +101,9 @@ export class SeedBanners {
                 button_text: 'Săn sale',
                 button_color: '#e74c3c',
                 text_color: '#ffffff',
-                location_id: productPageLocation.id,
+                location_id: Number(productPageLocation.id),
                 sort_order: 1,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             // About us banner
             {
@@ -124,9 +117,9 @@ export class SeedBanners {
                 button_text: 'Tìm hiểu thêm',
                 button_color: '#9b59b6',
                 text_color: '#ffffff',
-                location_id: aboutUsLocation.id,
+                location_id: Number(aboutUsLocation.id),
                 sort_order: 1,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             // Blog banners
             {
@@ -140,9 +133,9 @@ export class SeedBanners {
                 button_text: 'Đọc ngay',
                 button_color: '#3498db',
                 text_color: '#ffffff',
-                location_id: blogLocation.id,
+                location_id: Number(blogLocation.id),
                 sort_order: 1,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
             {
                 title: 'Hướng dẫn chọn size',
@@ -155,19 +148,18 @@ export class SeedBanners {
                 button_text: 'Xem ngay',
                 button_color: '#2ecc71',
                 text_color: '#ffffff',
-                location_id: blogLocation.id,
+                location_id: Number(blogLocation.id),
                 sort_order: 2,
-                status: BasicStatus.Active,
+                status: BasicStatus.active,
             },
         ];
 
         for (const bannerData of banners) {
-            const banner = bannerRepository.create({
-                ...bannerData,
-                created_user_id: defaultUserId,
-                updated_user_id: defaultUserId,
+            await this.prisma.banner.create({
+                data: {
+                    ...bannerData,
+                },
             });
-            await bannerRepository.save(banner);
             this.logger.log(`Created banner: ${bannerData.title} for location ${bannerData.location_id}`);
         }
 

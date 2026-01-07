@@ -1,8 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { RequestContext } from '@/common/utils/request-context.util';
-import { Context } from '@/shared/entities/context.entity';
-import { Group } from '@/shared/entities/group.entity';
-import { Repository } from 'typeorm';
+import { PrismaService } from '@/core/database/prisma/prisma.service';
 
 /**
  * Interface cho entity có group_id
@@ -15,43 +13,43 @@ export interface GroupOwnedEntity {
  * Helper function: Lấy group hiện tại từ RequestContext
  * Nếu chưa có trong cache, sẽ query từ database và cache lại
  * 
- * @param groupRepo - Repository của Group (optional, chỉ cần khi chưa có trong cache)
+ * @param prisma - PrismaService (optional, chỉ cần khi chưa có trong cache)
  * @returns Group hoặc null
  * 
  * @example
  * ```typescript
- * const group = await getCurrentGroup(this.groupRepo);
+ * const group = await getCurrentGroup(this.prisma);
  * if (group && group.type === 'system') {
  *   // System admin logic
  * }
  * ```
  */
 export async function getCurrentGroup(
-  groupRepo?: Repository<Group>
-): Promise<Group | null> {
+  prisma?: PrismaService
+): Promise<any | null> {
   // Thử lấy từ RequestContext cache trước
   const groupId = RequestContext.get<number | null>('groupId');
   if (!groupId) {
     return null;
   }
 
-  // Nếu có groupRepo, query và cache lại
-  if (groupRepo) {
-    const group = await groupRepo.findOne({ 
+  // Nếu có prisma, query và cache lại
+  if (prisma) {
+    const group = await prisma.group.findFirst({ 
       where: { id: groupId },
-      relations: ['context']
+      include: { context: true }
     });
     if (group) {
       RequestContext.set('group', group);
       if (group.context) {
         RequestContext.set('context', group.context);
-        RequestContext.set('contextId', group.context.id);
+        RequestContext.set('contextId', Number(group.context.id));
       }
     }
     return group || null;
   }
 
-  // Nếu không có groupRepo, chỉ trả về null
+  // Nếu không có prisma, chỉ trả về null
   return null;
 }
 
@@ -59,62 +57,61 @@ export async function getCurrentGroup(
  * Helper function: Lấy context hiện tại từ RequestContext (từ group)
  * Nếu chưa có trong cache, sẽ query từ database và cache lại
  * 
- * @param contextRepo - Repository của Context (optional, chỉ cần khi chưa có trong cache)
+ * @param prisma - PrismaService (optional, chỉ cần khi chưa có trong cache)
  * @returns Context hoặc null
  * 
  * @example
  * ```typescript
- * const context = await getCurrentContext(this.contextRepo);
+ * const context = await getCurrentContext(this.prisma);
  * if (context && context.type === 'system') {
  *   // System admin logic
  * }
  * ```
  */
 export async function getCurrentContext(
-  contextRepo?: Repository<Context>
-): Promise<Context | null> {
+  prisma?: PrismaService
+): Promise<any | null> {
   // Thử lấy từ RequestContext cache trước
-  const cachedContext = RequestContext.get<Context>('context');
+  const cachedContext = RequestContext.get<any>('context');
   if (cachedContext) {
     return cachedContext;
   }
 
-  // Nếu chưa có và có contextRepo, query từ groupId
-  if (contextRepo) {
+  // Nếu chưa có và có prisma, query từ groupId
+  if (prisma) {
     const groupId = RequestContext.get<number | null>('groupId');
     if (groupId) {
       // Query context từ group
-      const groupRepo = contextRepo.manager.getRepository('Group');
-      const group = await groupRepo.findOne({ 
+      const group = await prisma.group.findFirst({ 
         where: { id: groupId },
-        relations: ['context']
-      } as any);
+        include: { context: true }
+      });
       
       if (group && group.context) {
         RequestContext.set('context', group.context);
-        RequestContext.set('contextId', group.context.id);
+        RequestContext.set('contextId', Number(group.context.id));
         return group.context;
       } else if (group && group.context_id) {
-        const context = await contextRepo.findOne({ where: { id: group.context_id } });
+        const context = await prisma.context.findFirst({ where: { id: group.context_id } });
         if (context) {
           RequestContext.set('context', context);
-          RequestContext.set('contextId', context.id);
+          RequestContext.set('contextId', Number(context.id));
         }
         return context || null;
       }
     } else {
       // Fallback: system context
       const contextId = RequestContext.get<number>('contextId') || 1;
-      const context = await contextRepo.findOne({ where: { id: contextId } });
+      const context = await prisma.context.findFirst({ where: { id: contextId } });
       if (context) {
         RequestContext.set('context', context);
-        RequestContext.set('contextId', context.id);
+        RequestContext.set('contextId', Number(context.id));
       }
       return context || null;
     }
   }
 
-  // Nếu không có contextRepo, chỉ trả về null
+  // Nếu không có prisma, chỉ trả về null
   return null;
 }
 
