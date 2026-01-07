@@ -93,11 +93,14 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
         // Storage
         STORAGE_TYPE: Joi.string().valid('local', 's3').default('local'),
         STORAGE_MAX_FILE_SIZE: Joi.number().min(1024).max(104857600).default(10485760), // 1KB to 100MB, default 10MB
-        AWS_REGION: Joi.string().default('us-east-1'),
-        AWS_S3_BUCKET: Joi.string().allow(''),
-        AWS_ACCESS_KEY_ID: Joi.string().allow(''),
-        AWS_SECRET_ACCESS_KEY: Joi.string().allow(''),
-        AWS_S3_BASE_URL: Joi.string().allow(''),
+        // Remote object storage (S3/MinIO/compatible) – dùng tên biến chung, không gắn AWS
+        STORAGE_S3_REGION: Joi.string().allow(''),
+        STORAGE_S3_BUCKET: Joi.string().allow(''),
+        STORAGE_S3_ACCESS_KEY_ID: Joi.string().allow(''),
+        STORAGE_S3_SECRET_ACCESS_KEY: Joi.string().allow(''),
+        STORAGE_S3_BASE_URL: Joi.string().allow(''),
+        STORAGE_S3_ENDPOINT: Joi.string().uri({ allowRelative: false, scheme: ['http', 'https'] }).allow(''),
+        STORAGE_S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
       }),
     }),
     DatabaseModule,

@@ -13,13 +13,18 @@ export default registerAs('storage', () => ({
     baseUrl: '/uploads', // Hardcoded - not sensitive
   },
   
-  // AWS S3 config
+  // Remote object storage (S3/MinIO/compatible)
   s3: {
-    region: process.env.AWS_REGION || 'us-east-1',
-    bucket: process.env.AWS_S3_BUCKET || '',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    baseUrl: process.env.AWS_S3_BASE_URL || '',
+    // Tên biến chung, không gắn với provider cụ thể
+    region: process.env.STORAGE_S3_REGION || 'us-east-1',
+    bucket: process.env.STORAGE_S3_BUCKET || '',
+    accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY || '',
+    endpoint: process.env.STORAGE_S3_ENDPOINT || '',
+    // Base URL trả về cho client (ví dụ: https://minio1.webtui.vn:9000/bucket-s3monmon)
+    baseUrl: process.env.STORAGE_S3_BASE_URL || '',
+    // MinIO thường yêu cầu path style. Mặc định true.
+    forcePathStyle: (process.env.STORAGE_S3_FORCE_PATH_STYLE || 'true').toLowerCase() === 'true',
   },
 }));
 
