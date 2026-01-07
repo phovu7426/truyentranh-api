@@ -20,6 +20,7 @@ import { prepareQuery } from '@/common/base/utils/list-query.helper';
 import { LogRequest } from '@/common/decorators/log-request.decorator';
 import { Permission } from '@/common/decorators/rbac.decorators';
 import { UploadService } from '@/modules/file-upload/services/upload.service';
+import { ImageValidator } from '@/modules/comics/core/validators/image-validator';
 
 @Controller('admin/comics')
 export class ComicsController {
@@ -96,7 +97,6 @@ export class ComicsController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     // Validate image
-    const { ImageValidator } = await import('@/modules/comics/core/validators/image-validator');
     ImageValidator.validate(file);
 
     const uploadResult = await this.uploadService.uploadFile(file);
@@ -105,7 +105,7 @@ export class ComicsController {
       throw new Error('Comic not found');
     }
 
-    return this.comicsService.update(id, { cover_image: uploadResult.url } as any);
+    return this.comicsService.update({ id: BigInt(id) } as any, { cover_image: uploadResult.url } as any);
   }
 
   @Permission('comic.manage')

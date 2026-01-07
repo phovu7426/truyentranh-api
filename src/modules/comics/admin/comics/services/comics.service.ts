@@ -49,9 +49,11 @@ export class ComicsService extends PrismaCrudService<ComicBag> {
           slug: cat.slug,
         };
       }) || [];
+      const category_ids = categories.map((cat: any) => cat.id);
       return {
         ...this.convertBigIntFields(comic),
         categories,
+        category_ids,
       };
     });
   }
@@ -66,9 +68,11 @@ export class ComicsService extends PrismaCrudService<ComicBag> {
         slug: cat.slug,
       };
     }) || [];
+    const category_ids = categories.map((cat: any) => cat.id);
     return {
       ...this.convertBigIntFields(entity),
       categories,
+      category_ids,
     };
   }
 

@@ -20,6 +20,7 @@ import { prepareQuery } from '@/common/base/utils/list-query.helper';
 import { LogRequest } from '@/common/decorators/log-request.decorator';
 import { Permission } from '@/common/decorators/rbac.decorators';
 import { UploadService } from '@/modules/file-upload/services/upload.service';
+import { ImageValidator } from '@/modules/comics/core/validators/image-validator';
 
 @Controller('admin/chapters')
 export class ChaptersController {
@@ -38,7 +39,7 @@ export class ChaptersController {
   @Permission('comic.manage')
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number) {
-    return this.chaptersService.getOne({ id });
+    return this.chaptersService.getOne({ id: BigInt(id) } as any);
   }
 
   @Permission('comic.manage')
@@ -55,7 +56,7 @@ export class ChaptersController {
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) dto: UpdateChapterDto,
   ) {
-    return this.chaptersService.update(id, dto as any);
+    return this.chaptersService.update({ id: BigInt(id) } as any, dto as any);
   }
 
   @Permission('comic.manage')
@@ -77,7 +78,7 @@ export class ChaptersController {
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) body: { chapter_index: number },
   ) {
-    return this.chaptersService.update(id, { chapter_index: body.chapter_index } as any);
+    return this.chaptersService.update({ id: BigInt(id) } as any, { chapter_index: body.chapter_index } as any);
   }
 
   @Permission('comic.manage')
@@ -94,7 +95,6 @@ export class ChaptersController {
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     // Validate images
-    const { ImageValidator } = await import('@/modules/comics/core/validators/image-validator');
     ImageValidator.validateMultiple(files);
 
     // Upload files và lấy URLs
