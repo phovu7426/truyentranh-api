@@ -6,14 +6,12 @@ import * as Joi from 'joi';
 
 // Config loaders
 import appConfig from '@/core/config/app.config';
-import databaseConfig from '@/core/config/database.config';
 import jwtConfig from '@/core/config/jwt.config';
 import mailConfig from '@/core/config/mail.config';
 import storageConfig from '@/core/config/storage.config';
 import { ModuleRef } from '@nestjs/core';
 
 // Infrastructure modules
-import { DatabaseModule } from '@/core/database/database.module';
 import { PrismaModule } from '@/core/database/prisma/prisma.module';
 import { RedisUtil } from '@/core/utils/redis.util';
 import { TokenBlacklistService } from '@/core/security/token-blacklist.service';
@@ -25,7 +23,7 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig, mailConfig, storageConfig],
+      load: [appConfig, jwtConfig, mailConfig, storageConfig],
       validationSchema: Joi.object({
         // App
         NODE_ENV: Joi.string().valid('development', 'test', 'staging', 'production').default('development'),
@@ -103,11 +101,10 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
         STORAGE_S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
       }),
     }),
-    DatabaseModule,
     PrismaModule,
   ],
   providers: [RedisUtil, TokenBlacklistService, AttemptLimiterService],
-  exports: [ConfigModule, DatabaseModule, PrismaModule, RedisUtil, TokenBlacklistService, AttemptLimiterService],
+  exports: [ConfigModule, PrismaModule, RedisUtil, TokenBlacklistService, AttemptLimiterService],
 })
 export class CoreModule {
   constructor(private readonly configService: ConfigService) {

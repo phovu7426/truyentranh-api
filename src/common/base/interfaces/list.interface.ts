@@ -1,5 +1,3 @@
-import { FindOptionsWhere } from 'typeorm';
-
 /**
  * Sort Options Interface
  */
@@ -23,8 +21,6 @@ export interface FilterOptions {
  */
 export type Filters<T> = 
   | Partial<Record<keyof T, any>>
-  | FindOptionsWhere<T>
-  | FindOptionsWhere<T>[]
   | FilterOptions[];
 
 /**

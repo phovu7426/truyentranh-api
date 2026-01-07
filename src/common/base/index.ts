@@ -6,7 +6,6 @@
 // (no core exports right now)
 
 // Services
-export { ListService, CrudService } from '@/common/base/services';
 export {
   PrismaListService,
   PrismaCrudService,
