@@ -29,26 +29,15 @@ export class PublicComicsService extends PrismaListService<ComicBag> {
     // Luôn giới hạn comics ở trạng thái public
     prepared.status = { in: PUBLIC_COMIC_STATUSES };
 
-    // Xử lý category_slug filter - chuyển thành relation filter
-    const categorySlug = prepared.category_slug;
-    if (categorySlug) {
+    // Xử lý comic_category_id filter - chuyển thành relation filter (alias của category_id)
+    const comicCategoryId = prepared.comic_category_id;
+    if (comicCategoryId) {
       prepared.categoryLinks = {
         some: {
-          category: { slug: categorySlug },
+          category: { id: BigInt(comicCategoryId) },
         },
       };
-      delete prepared.category_slug;
-    }
-
-    // Xử lý category_id filter - chuyển thành relation filter (hỗ trợ thêm)
-    const categoryId = prepared.category_id;
-    if (categoryId) {
-      prepared.categoryLinks = {
-        some: {
-          category: { id: BigInt(categoryId) },
-        },
-      };
-      delete prepared.category_id;
+      delete prepared.comic_category_id;
     }
 
     return prepared;

@@ -18,7 +18,7 @@ export class EmailConfigService {
     // Trả về config nhưng mask password
     const { smtp_password, ...rest } = config;
     return {
-      ...rest,
+      ...toPlain(rest),
       smtp_password: smtp_password ? '******' : undefined,
     };
   }
@@ -66,7 +66,7 @@ export class EmailConfigService {
 
       const { smtp_password, ...rest } = newConfig;
       return {
-        ...rest,
+        ...toPlain(rest),
         smtp_password: '******',
       };
     }
