@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 
 @Injectable()
 export class ReadingHistoryService {
@@ -9,7 +10,7 @@ export class ReadingHistoryService {
   ) {}
 
   async getByUser(userId: number) {
-    return this.prisma.readingHistory.findMany({
+    const histories = await this.prisma.readingHistory.findMany({
       where: { user_id: userId },
       include: {
         comic: true,
@@ -17,6 +18,8 @@ export class ReadingHistoryService {
       },
       orderBy: { updated_at: 'desc' },
     });
+
+    return toPlain(histories);
   }
 
   async updateOrCreate(comicId: number, chapterId: number) {
@@ -33,7 +36,7 @@ export class ReadingHistoryService {
     });
 
     if (existing) {
-      return this.prisma.readingHistory.update({
+      const updated = await this.prisma.readingHistory.update({
         where: { id: existing.id },
         data: {
           chapter_id: chapterId,
@@ -43,9 +46,11 @@ export class ReadingHistoryService {
           chapter: true,
         },
       });
+
+      return toPlain(updated);
     }
 
-    return this.prisma.readingHistory.create({
+    const created = await this.prisma.readingHistory.create({
       data: {
         user_id: userId,
         comic_id: comicId,
@@ -56,6 +61,8 @@ export class ReadingHistoryService {
         chapter: true,
       },
     });
+
+    return toPlain(created);
   }
 
   async delete(comicId: number) {

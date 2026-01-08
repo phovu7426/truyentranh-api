@@ -1,14 +1,17 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { RequestContext } from '@/common/utils/request-context.util';
 import { AdminContextService } from '@/modules/context/admin/context/services/context.service';
 import { AdminGroupService } from '@/modules/context/admin/group/services/group.service';
 import { UserGroupService } from '@/modules/context/user/group/services/group.service';
 import { Auth } from '@/common/utils/auth.util';
+import { PERMS_REQUIRED_KEY, PUBLIC_PERMISSION } from '@/common/decorators/rbac.decorators';
 
 @Injectable()
 export class GroupInterceptor implements NestInterceptor {
   constructor(
+    private readonly reflector: Reflector,
     private readonly contextService: AdminContextService,
     private readonly groupService: AdminGroupService,
     private readonly userGroupService: UserGroupService,
@@ -16,6 +19,13 @@ export class GroupInterceptor implements NestInterceptor {
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest();
+    
+    // Check if this is a public endpoint
+    const requiredPerms = this.reflector.getAllAndOverride<string[]>(PERMS_REQUIRED_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]) || [];
+    const isPublicEndpoint = requiredPerms.includes(PUBLIC_PERMISSION);
     
     // ✅ Chỉ dùng group_id, không cần context_id
     const groupIdFromHeader = request.headers['x-group-id'];
@@ -31,8 +41,9 @@ export class GroupInterceptor implements NestInterceptor {
       }
       
       // Validate user có quyền truy cập group này không
+      // ⚠️ Skip permission check cho public endpoints
       const userId = Auth.id(context);
-      if (userId) {
+      if (userId && !isPublicEndpoint) {
         const userGroups = await this.userGroupService.getUserGroups(userId);
         const groupIdNumber = Number(group.id); // Convert BigInt to number for comparison
         const hasAccess = userGroups.some((g: any) => g.id === groupIdNumber);

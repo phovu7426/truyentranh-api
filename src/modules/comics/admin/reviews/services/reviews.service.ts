@@ -61,11 +61,34 @@ export class ReviewsService {
     }
 
     // Build orderBy
-    const orderBy: Prisma.ComicReviewOrderByWithRelationInput = {};
+    const prismaSortOrder = sortOrder.toLowerCase() === 'asc' ? Prisma.SortOrder.asc : Prisma.SortOrder.desc;
+    let orderBy: Prisma.ComicReviewOrderByWithRelationInput;
+    
     if (sortField && ['id', 'created_at', 'updated_at', 'rating', 'user_id', 'comic_id'].includes(sortField)) {
-      orderBy[sortField as keyof Prisma.ComicReviewOrderByWithRelationInput] = sortOrder.toLowerCase() as 'asc' | 'desc';
+      switch (sortField) {
+        case 'id':
+          orderBy = { id: prismaSortOrder };
+          break;
+        case 'created_at':
+          orderBy = { created_at: prismaSortOrder };
+          break;
+        case 'updated_at':
+          orderBy = { updated_at: prismaSortOrder };
+          break;
+        case 'rating':
+          orderBy = { rating: prismaSortOrder };
+          break;
+        case 'user_id':
+          orderBy = { user_id: prismaSortOrder };
+          break;
+        case 'comic_id':
+          orderBy = { comic_id: prismaSortOrder };
+          break;
+        default:
+          orderBy = { created_at: Prisma.SortOrder.desc };
+      }
     } else {
-      orderBy.created_at = 'desc';
+      orderBy = { created_at: Prisma.SortOrder.desc };
     }
 
     const [data, total] = await Promise.all([
@@ -206,7 +229,7 @@ export class ReviewsService {
         by: ['rating'],
         where: { deleted_at: null },
         _count: { rating: true },
-        orderBy: { rating: 'asc' },
+        orderBy: { rating: Prisma.SortOrder.asc },
       }),
     ]);
 
