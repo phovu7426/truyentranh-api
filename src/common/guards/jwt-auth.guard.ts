@@ -52,6 +52,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     request.user = null;
     try {
       RequestContext.set('user', null);
+      RequestContext.set('userId', null);
     } catch { }
   }
 
@@ -182,6 +183,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       try {
         if (user) {
           RequestContext.set('user', user);
+          // Set userId để service có thể lấy dễ dàng
+          RequestContext.set('userId', user.id);
         }
       } catch { }
       return user;
@@ -211,6 +214,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     try {
       if (user) {
         RequestContext.set('user', user);
+        // Set userId để service có thể lấy dễ dàng
+        RequestContext.set('userId', user.id);
       }
     } catch { }
     return user;

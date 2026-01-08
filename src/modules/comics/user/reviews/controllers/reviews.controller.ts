@@ -18,14 +18,14 @@ import { SanitizeHtmlPipe } from '@/modules/comics/core/pipes/sanitize-html.pipe
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) { }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Get()
   async getMyReviews() {
     const userId = 1; // TODO: Get from request context
     return this.reviewsService.getByUser(userId);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 reviews per minute
   @Post('comics/:comicId')
   @UsePipes(new SanitizeHtmlPipe())
@@ -36,7 +36,7 @@ export class ReviewsController {
     return this.reviewsService.createOrUpdate(comicId, body.rating, body.content);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Delete('comics/:comicId')
   async delete(@Param('comicId', ParseIntPipe) comicId: number) {
     return this.reviewsService.delete(comicId);

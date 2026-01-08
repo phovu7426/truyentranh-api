@@ -13,6 +13,7 @@ import { ModuleRef } from '@nestjs/core';
 
 // Infrastructure modules
 import { PrismaModule } from '@/core/database/prisma/prisma.module';
+import { SeederModule } from '@/core/database/seeder/seeder.module';
 import { RedisUtil } from '@/core/utils/redis.util';
 import { TokenBlacklistService } from '@/core/security/token-blacklist.service';
 import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
@@ -102,6 +103,7 @@ import { AttemptLimiterService } from '@/core/security/attempt-limiter.service';
       }),
     }),
     PrismaModule,
+    SeederModule,
   ],
   providers: [RedisUtil, TokenBlacklistService, AttemptLimiterService],
   exports: [ConfigModule, PrismaModule, RedisUtil, TokenBlacklistService, AttemptLimiterService],

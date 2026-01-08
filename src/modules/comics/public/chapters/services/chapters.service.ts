@@ -29,9 +29,21 @@ export class PublicChaptersService extends PrismaListService<ChapterBag> {
 
   /**
    * Override để load relations
+   * Ưu tiên: select > include mặc định
    */
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
+    
+    // Nếu có select trong queryOptions, dùng select và bỏ include
+    if (queryOptions?.select) {
+      return {
+        ...base,
+        select: queryOptions.select,
+        include: undefined,
+      };
+    }
+    
+    // Nếu không có select, dùng include mặc định
     return {
       ...base,
       include: {

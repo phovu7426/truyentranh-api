@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 
 @Injectable()
 export class FollowsService {
@@ -9,11 +10,13 @@ export class FollowsService {
   ) {}
 
   async getByUser(userId: number) {
-    return this.prisma.comicFollow.findMany({
+    const follows = await this.prisma.comicFollow.findMany({
       where: { user_id: userId },
       include: { comic: true },
       orderBy: { created_at: 'desc' },
     });
+
+    return toPlain(follows);
   }
 
   async follow(comicId: number) {
@@ -27,7 +30,7 @@ export class FollowsService {
     });
 
     if (existing) {
-      return existing;
+      return toPlain(existing);
     }
 
     const saved = await this.prisma.comicFollow.create({
@@ -40,7 +43,7 @@ export class FollowsService {
     // Sync follow count
     await this.syncFollowCount(comicId);
 
-    return saved;
+    return toPlain(saved);
   }
 
   async unfollow(comicId: number) {

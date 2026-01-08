@@ -36,6 +36,11 @@ export class RbacGuard implements CanActivate {
       throw new HttpException(response, response.httpStatus || HttpStatus.UNAUTHORIZED);
     }
 
+    // Nếu có @Permission('authenticated') hoặc @Permission('user') → chỉ cần đăng nhập
+    if (requiredPerms.includes('authenticated') || requiredPerms.includes('user')) {
+      return true;
+    }
+
     // ✅ MỚI: Lấy groupId thay vì contextId
     const groupId = RequestContext.get<number | null>('groupId') ?? null; // Có thể null
 

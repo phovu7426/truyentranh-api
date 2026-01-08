@@ -155,6 +155,7 @@ export class SeedPosts {
         ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000)
         : null;
       
+      // Create post first (without categories and tags)
       const saved = await this.prisma.post.create({
         data: {
           name: title,
@@ -172,14 +173,29 @@ export class SeedPosts {
           view_count: BigInt(Math.floor(Math.random() * 10000)),
           primary_postcategory_id: primaryCategory ? primaryCategory.id : null,
           created_user_id: Number(randomUser.id),
-          categories: {
-            connect: postCategories.map(cat => ({ id: cat.id })) as any,
-          },
-          tags: {
-            connect: postTags.map(tag => ({ id: tag.id })) as any,
-          },
         },
       });
+
+      // Create category relations manually
+      if (postCategories.length > 0) {
+        await this.prisma.postPostcategory.createMany({
+          data: postCategories.map(cat => ({
+            post_id: saved.id,
+            postcategory_id: cat.id,
+          })),
+        });
+      }
+
+      // Create tag relations manually
+      if (postTags.length > 0) {
+        await this.prisma.postPosttag.createMany({
+          data: postTags.map(tag => ({
+            post_id: saved.id,
+            posttag_id: tag.id,
+          })),
+        });
+      }
+
       this.logger.log(`Created post: ${title} (${postType}, ${status}, categories: ${postCategories.length}, tags: ${postTags.length})`);
     }
 

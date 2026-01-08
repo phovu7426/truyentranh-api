@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 
 @Injectable()
 export class BookmarksService {
@@ -9,13 +10,14 @@ export class BookmarksService {
   ) {}
 
   async getByUser(userId: number) {
-    return this.prisma.bookmark.findMany({
+    const bookmarks = await this.prisma.bookmark.findMany({
       where: { user_id: userId },
       include: {
         chapter: true,
       },
       orderBy: { created_at: 'desc' },
     });
+    return toPlain(bookmarks);
   }
 
   async create(chapterId: number, pageNumber: number) {
@@ -24,7 +26,7 @@ export class BookmarksService {
       throw new Error('User not authenticated');
     }
 
-    return this.prisma.bookmark.create({
+    const bookmark = await this.prisma.bookmark.create({
       data: {
         user_id: userId,
         chapter_id: chapterId,
@@ -34,6 +36,7 @@ export class BookmarksService {
         chapter: true,
       },
     });
+    return toPlain(bookmark);
   }
 
   async delete(id: number) {

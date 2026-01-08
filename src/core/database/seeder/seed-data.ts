@@ -18,6 +18,7 @@ import { SeedGroups } from '@/core/database/seeder/seed-groups';
 import { SeedComicCategories } from '@/core/database/seeder/seed-comic-categories';
 import { SeedComics } from '@/core/database/seeder/seed-comics';
 import { SeedChapters } from '@/core/database/seeder/seed-chapters';
+import { SeedComicLastChapter } from '@/core/database/seeder/seed-comic-last-chapter';
 
 @Injectable()
 export class SeedService {
@@ -43,6 +44,7 @@ export class SeedService {
     private readonly seedComicCategories: SeedComicCategories,
     private readonly seedComics: SeedComics,
     private readonly seedChapters: SeedChapters,
+    private readonly seedComicLastChapter: SeedComicLastChapter,
   ) { }
 
   async seedAll(): Promise<void> {
@@ -65,6 +67,8 @@ export class SeedService {
       await this.seedComicCategories.seed();
       await this.seedComics.seed();
       await this.seedChapters.seed();
+      // Backfill last chapter data sau khi seed chapters
+      await this.seedComicLastChapter.seed();
 
       // ecommerce demo (gắn với group/context nếu có)
       // await this.seedWarehouses.seed(); // Commented out vì liên quan đến product

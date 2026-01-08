@@ -28,7 +28,7 @@ import { GroupInterceptor } from '@/common/interceptors/group.interceptor';
 import { PostModule } from '@/modules/post/post.module';
 import { NotificationModule } from '@/modules/notification/notification.module';
 import { UserManagementModule } from '@/modules/user-management/user-management.module';
-import { EnumModule } from '@/shared/enums/enum.module';
+import { EnumModule } from '@/shared/enums';
 import { FileUploadModule } from '@/modules/file-upload/file-upload.module';
 import { MenuModule } from '@/modules/menu/menu.module';
 import { BannerModule } from '@/modules/banner/banner.module';

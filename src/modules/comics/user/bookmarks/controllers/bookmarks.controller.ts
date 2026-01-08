@@ -15,20 +15,20 @@ import { Permission } from '@/common/decorators/rbac.decorators';
 export class BookmarksController {
   constructor(private readonly bookmarksService: BookmarksService) { }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Get()
   async getList() {
     const userId = 1; // TODO: Get from request context
     return this.bookmarksService.getByUser(userId);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Post()
   async create(@Body(ValidationPipe) body: { chapter_id: number; page_number: number }) {
     return this.bookmarksService.create(body.chapter_id, body.page_number);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.bookmarksService.delete(id);

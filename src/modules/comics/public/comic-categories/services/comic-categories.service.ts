@@ -16,6 +16,11 @@ export class PublicComicCategoriesService extends PrismaListService<ComicCategor
     super(prisma.comicCategory, ['id', 'name', 'slug', 'created_at'], 'created_at:DESC');
   }
 
+  protected override async prepareFilters(filters?: any, _options?: any): Promise<any> {
+    // Luôn trả về object, không trả về undefined
+    return filters || {};
+  }
+
   protected override prepareOptions(queryOptions: any = {}) {
     const base = super.prepareOptions(queryOptions);
     return {

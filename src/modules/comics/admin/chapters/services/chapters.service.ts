@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { PrismaCrudService, PrismaCrudBag } from '@/common/base/services/prisma/prisma-crud.service';
-import { ChapterStatus } from '@/shared/enums';
+import { ChapterStatus, PUBLIC_CHAPTER_STATUSES } from '@/shared/enums';
 import { ComicNotificationService } from '@/modules/comics/core/services/comic-notification.service';
 
 type ChapterBag = PrismaCrudBag & {
@@ -98,6 +98,11 @@ export class ChaptersService extends PrismaCrudService<ChapterBag> {
       await this.notificationService.notifyNewChapter(entity);
     }
 
+    // Update comic's last chapter info if published
+    if (entity.status === ChapterStatus.published && entity.comic_id) {
+      await this.updateComicLastChapter(BigInt(entity.comic_id));
+    }
+
     this.tempPages = null;
   }
 
@@ -135,12 +140,24 @@ export class ChaptersService extends PrismaCrudService<ChapterBag> {
   }
 
   protected async afterUpdate(entity: any, updateDto: ChapterBag['Update']): Promise<void> {
+    const updatePayload = updateDto as any;
+    
     // Notify if status changed to published
-    if ((updateDto as any).status === ChapterStatus.published) {
+    if (updatePayload.status === ChapterStatus.published) {
       const updatedChapter = await this.getOne({ id: BigInt(Number(entity.id)) });
       if (updatedChapter) {
         await this.notificationService.notifyNewChapter(updatedChapter);
       }
+    }
+
+    // Update comic's last chapter info if status changed to published
+    // or if chapter_index/created_at changed (might affect last chapter)
+    if (entity.comic_id && (
+      updatePayload.status === ChapterStatus.published ||
+      updatePayload.chapter_index !== undefined ||
+      updatePayload.created_at !== undefined
+    )) {
+      await this.updateComicLastChapter(BigInt(entity.comic_id));
     }
   }
 
@@ -222,7 +239,50 @@ export class ChaptersService extends PrismaCrudService<ChapterBag> {
       data: { deleted_at: null },
     });
 
+    // Update comic's last chapter info after restore
+    if (chapter.comic_id) {
+      await this.updateComicLastChapter(chapter.comic_id);
+    }
+
     return this.getOne({ id: BigInt(id) });
+  }
+
+  /**
+   * Hook after delete - update comic's last chapter info
+   */
+  protected override async afterDelete(entity: any): Promise<void> {
+    if (entity.comic_id) {
+      await this.updateComicLastChapter(BigInt(entity.comic_id));
+    }
+  }
+
+  /**
+   * Helper: Update comic's last chapter info
+   * Tìm chapter mới nhất (published) của comic và update comic fields
+   */
+  private async updateComicLastChapter(comicId: bigint): Promise<void> {
+    // Tìm chapter mới nhất (published, không bị xóa)
+    const lastChapter = await this.prisma.chapter.findFirst({
+      where: {
+        comic_id: comicId,
+        status: { in: PUBLIC_CHAPTER_STATUSES },
+        deleted_at: null,
+      },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        created_at: true,
+      },
+    });
+
+    // Update comic
+    await this.prisma.comic.update({
+      where: { id: comicId },
+      data: {
+        last_chapter_id: lastChapter?.id || null,
+        last_chapter_updated_at: lastChapter?.created_at || null,
+      },
+    });
   }
 
   protected override async afterGetOne(entity: any, _where?: any, _options?: any): Promise<any> {

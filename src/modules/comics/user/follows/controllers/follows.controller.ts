@@ -13,26 +13,26 @@ import { Permission } from '@/common/decorators/rbac.decorators';
 export class FollowsController {
   constructor(private readonly followsService: FollowsService) { }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Get()
   async getList() {
     const userId = 1; // TODO: Get from request context
     return this.followsService.getByUser(userId);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Post('comics/:comicId')
   async follow(@Param('comicId', ParseIntPipe) comicId: number) {
     return this.followsService.follow(comicId);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Delete('comics/:comicId')
   async unfollow(@Param('comicId', ParseIntPipe) comicId: number) {
     return this.followsService.unfollow(comicId);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Get('comics/:comicId/is-following')
   async isFollowing(@Param('comicId', ParseIntPipe) comicId: number) {
     return { is_following: await this.followsService.isFollowing(comicId) };

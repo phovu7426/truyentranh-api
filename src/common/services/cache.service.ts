@@ -91,7 +91,21 @@ export class CacheService {
     ttl?: number,
   ): Promise<T> {
     const cached = await this.get<T>(key);
-    if (cached !== undefined) {
+
+    // Chỉ dùng cache nếu:
+    // - khác undefined
+    // - KHÔNG phải string rỗng
+    // - KHÔNG phải object rỗng ({}), vẫn cho phép [] hoặc các kiểu khác
+    const isEmptyString =
+      typeof cached === 'string' && cached.trim().length === 0;
+
+    const isEmptyPlainObject =
+      cached !== null &&
+      typeof cached === 'object' &&
+      cached.constructor === Object &&
+      Object.keys(cached).length === 0;
+
+    if (cached !== undefined && !isEmptyString && !isEmptyPlainObject) {
       return cached;
     }
 

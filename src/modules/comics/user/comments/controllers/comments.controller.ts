@@ -20,7 +20,7 @@ import { SanitizeHtmlPipe } from '@/modules/comics/core/pipes/sanitize-html.pipe
 export class UserCommentsController {
   constructor(private readonly commentsService: UserCommentsService) { }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Get()
   async getMyComments(
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
@@ -30,7 +30,7 @@ export class UserCommentsController {
     return this.commentsService.getByUser(userId, page, limit);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 comments per minute
   @Post()
   @UsePipes(new SanitizeHtmlPipe())
@@ -43,7 +43,7 @@ export class UserCommentsController {
     return this.commentsService.create(body);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Put(':id')
   @UsePipes(new SanitizeHtmlPipe())
   async update(
@@ -53,7 +53,7 @@ export class UserCommentsController {
     return this.commentsService.update(id, body.content);
   }
 
-  @Permission('comic.read')
+  @Permission('authenticated')
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     return this.commentsService.delete(id);

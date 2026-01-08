@@ -16,6 +16,7 @@ import { PublicCommentsModule } from '@/modules/comics/public/comments/comments.
 import { PublicReviewsModule } from '@/modules/comics/public/reviews/reviews.module';
 import { PublicComicCategoriesModule } from '@/modules/comics/public/comic-categories/comic-categories.module';
 import { StatsModule } from '@/modules/comics/public/stats/stats.module';
+import { HomepageModule } from '@/modules/comics/public/homepage/homepage.module';
 
 // Import user modules
 import { UserReadingHistoryModule } from '@/modules/comics/user/reading-history/reading-history.module';
@@ -43,6 +44,7 @@ import { ComicNotificationService } from '@/modules/comics/core/services/comic-n
     PublicReviewsModule,
     PublicComicCategoriesModule,
     StatsModule,
+    HomepageModule,
     // User modules
     UserReadingHistoryModule,
     UserBookmarksModule,

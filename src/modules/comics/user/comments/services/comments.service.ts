@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '@/core/database/prisma/prisma.service';
 import { RequestContext } from '@/common/utils/request-context.util';
 import { ComicNotificationService } from '@/modules/comics/core/services/comic-notification.service';
+import { toPlain } from '@/common/base/services/prisma/prisma.utils';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -20,7 +21,12 @@ export class UserCommentsService {
     parent_id?: number;
     content: string;
   }) {
-    const userId = RequestContext.get<number>('userId');
+    // Lấy userId từ RequestContext hoặc từ user object
+    let userId: number | undefined = RequestContext.get<number>('userId');
+    if (!userId) {
+      const user = RequestContext.get<any>('user');
+      userId = user?.id ? Number(user.id) : undefined;
+    }
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
@@ -56,14 +62,20 @@ export class UserCommentsService {
       await this.notificationService.notifyCommentReply(Number(saved.id), data.parent_id, userId);
     }
 
-    return saved;
+    // Convert BigInt thành number để tránh lỗi JSON serialization
+    return toPlain(saved);
   }
 
   /**
    * Cập nhật comment
    */
   async update(commentId: number, content: string) {
-    const userId = RequestContext.get<number>('userId');
+    // Lấy userId từ RequestContext hoặc từ user object
+    let userId: number | undefined = RequestContext.get<number>('userId');
+    if (!userId) {
+      const user = RequestContext.get<any>('user');
+      userId = user?.id ? Number(user.id) : undefined;
+    }
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
@@ -76,20 +88,28 @@ export class UserCommentsService {
       throw new NotFoundException('Comment not found');
     }
 
-    return this.prisma.comment.update({
+    const updated = await this.prisma.comment.update({
       where: { id: commentId },
       data: {
         content,
         updated_user_id: userId,
       },
     });
+
+    // Convert BigInt thành number để tránh lỗi JSON serialization
+    return toPlain(updated);
   }
 
   /**
    * Xóa comment (soft delete)
    */
   async delete(commentId: number) {
-    const userId = RequestContext.get<number>('userId');
+    // Lấy userId từ RequestContext hoặc từ user object
+    let userId: number | undefined = RequestContext.get<number>('userId');
+    if (!userId) {
+      const user = RequestContext.get<any>('user');
+      userId = user?.id ? Number(user.id) : undefined;
+    }
     if (!userId) {
       throw new BadRequestException('User not authenticated');
     }
@@ -127,8 +147,9 @@ export class UserCommentsService {
       this.prisma.comment.count({ where: { user_id: userId } }),
     ]);
 
+    // Convert BigInt thành number để tránh lỗi JSON serialization
     return {
-      data,
+      data: toPlain(data),
       pagination: {
         page,
         limit,
